@@ -11,26 +11,31 @@ import matplotlib.pylab as plt
 
 # In[3]:
 
-a = wavfile.read("C:\\Users\\User\Desktop\VAD\knocking.wav", False)[1]
-# In[ ]:
-
-b = np.zeros(2*len(a), np.int8)
-
+#file = wavfile.read("C:\\Users\\User\Desktop\VAD\knocking.wav", False)[1]
 
 # In[5]:
-
-def make_int8(arr):
-    b = np.zeros(2*len(arr), np.int8)
+def get_file_len(file):
+    raw_file = wavfile.read(file, False)[1]
+    b = np.zeros(2*len(raw_file), np.int8)
     k = 0
-    while k<len(arr):
-        b[2*k] = (arr[k]>>8) & 0xFF
+    while k<len(raw_file):
+        b[2*k] = (raw_file[k]>>8) & 0xFF
         b[2*k+1] % 0xFF
         k+=1
-    return b
+    return len(b)
 
-
+#%%
+def get_frame_from_file(frame_size,first_frame, file):
+    raw_file = wavfile.read(file, False)[1]
+    b = np.zeros(2*len(raw_file), np.int8)
+    k = 0
+    while k<len(raw_file):
+        b[2*k] = (raw_file[k]>>8) & 0xFF
+        b[2*k+1] % 0xFF
+        k+=1
+    return b[first_frame: first_frame+frame_size]
 # In[6]:
-frames =make_int8(a)
+frames =get_frame_from_file(400,0,"C:\\Users\\User\Desktop\VAD\knocking.wav")
 # In[29]:
 #i = 0
 #zeros = np.zeros(48)
@@ -162,7 +167,7 @@ def all_Hz_from_Mel(mels):
 Hzs= all_Hz_from_Mel(Mel_from_Hz(300, 8000,10))
 # In[ ]:
 
-f(i) = floor((nfft+1)*h(i)/upper_frequency)  #upper_frequency is a sample rate
+#f(i) = floor((nfft+1)*h(i)/upper_frequency)  #upper_frequency is a sample rate
 def make_mel_bins(upper_frequency, Hzs, fft_n):
     mel_bin_numbers = []
     for Hz in Hzs:
@@ -201,7 +206,6 @@ def get_mel_filterbanks(low_Hz, up_Hz, fft_n, n_filters, sample_rate):
     mels_bin = make_mel_bins(sample_rate, Hzs , fft_n)
     K = np.arange(0, fft_n/2, 1)
     filters = []
-    x_plot = []
     for m in range(1, n_filters+1):
         filterbank = np.zeros(fft_n/2)
         
@@ -223,7 +227,7 @@ def get_mel_filterbanks(low_Hz, up_Hz, fft_n, n_filters, sample_rate):
 get_mel_filterbanks(300, 8000, 256, 10, 16000)
 #%%
 
-def get_spectral_frames(fft_n, frame, n_filters, low_Hz, up_Hz, sample_rate, ):
+def get_spectral_frames(fft_n, frame, n_filters, low_Hz, up_Hz, sample_rate ):
     frame_after_fft = np.absolute(np.fft.fft(frame, fft_n)[0:fft_n/2]/fft_n)
     filters = get_mel_filterbanks(low_Hz, up_Hz, fft_n, n_filters, sample_rate)
     coefs = []
@@ -238,5 +242,27 @@ def get_spectral_frames(fft_n, frame, n_filters, low_Hz, up_Hz, sample_rate, ):
         
     return frames_cepstral
 #%%
+def get_deltas(frames):
+    n = len(frames)
+    deltas = []
+    for i in range(n):
+        if i == 0:
+            deltas.append(frames[1]-frames[0])
+        elif i == len(frames): deltas.append(frames(n)- frames(n-1))
+        deltas.append(frames[n+1]-frames[i-1])
+    return deltas
+
+#%%
+
+def get_all(file_way,length_samples, step):
+    import csv
+    k = np.mod((get_file_len(file_way) - 400), 160)
+    samples = np.array([])
+    deltas = np.array([])
+    for i in range(k):
+        np.append(samples, np.array(get_frame_from_file(length_samples,step*i, file_way)))
+        np.append(deltas, np.array(get_deltas(get_frame_from_file(length_samples,step*i, file_way))))
+        i+=1
+    result = [np.concatenate(x) for x in zip(samples,deltas)]
+    csv.writer(open('blank.csv', 'w', newline=''), delimiter=',').writerows(result)
     
-get_spectral_frames(512,frames[0:400],25,300,8000,16000)
