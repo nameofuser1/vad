@@ -265,4 +265,38 @@ def get_all(file_way,length_samples, step):
         i+=1
     result = [np.concatenate(x) for x in zip(samples,deltas)]
     csv.writer(open('blank.csv', 'w', newline=''), delimiter=',').writerows(result)
+#%%
+def get_samples_from_file(file):  #это новая функция, получает просто семплы из файла
+    raw_file = wavfile.read(file, False)[1]
+    b = np.zeros(2*len(raw_file), np.int8)
+    k = 0
+    while k<len(raw_file):
+        b[2*k] = (raw_file[k]>>8) & 0xFF
+        b[2*k+1] % 0xFF
+        k+=1
+    return b
+#%%
+def get_spectral_of_file(fft_n, n_filters, low_Hz, up_Hz, sample_rate, file, step, size): # слайсами делит семплы и выдает массив в котором каждый элемент это вектор спектрала и дельты
+    spectrals = np.array([])
+    deltas = np.array([])
+    samples = np.array(get_samples_from_file(file))
+    k = np.mod((len(samples) - size), step)
+    for i in range(k):
+        np.append(spectrals, np.array(get_spectral_frames(fft_n, samples[i*step:i*step+size], 
+                                                 n_filters, low_Hz, up_Hz, sample_rate)))
+        np.append(deltas, np.array(get_deltas(fft_n, samples[i*step:i*step+size], 
+                                                 n_filters, low_Hz, up_Hz, sample_rate)))
+        i+=1
+    result = [np.concatenate(x) for x in zip(spectrals,deltas)]
+    return result
+#%%
+
+def write_csv(directory,fft_n, n_filters, low_Hz, up_Hz, sample_rate, file, step, size):
+    import csv
+    import os
+    for file in os.listdir(directory):
+        if file.endswith(".wav"):
+            result = get_spectral_of_file(fft_n, n_filters, low_Hz, up_Hz, sample_rate, file, step, size)
+            csv.writer(open('blank.csv', 'w', newline=''), delimiter=',').writerows(result)
     
+        
