@@ -206,6 +206,7 @@ def get_mel_filterbanks(low_Hz, up_Hz, fft_n, n_filters, sample_rate):
     mels_bin = make_mel_bins(sample_rate, Hzs , fft_n)
     K = np.arange(0, fft_n/2, 1)
     filters = []
+
     for m in range(1, n_filters+1):
         filterbank = np.zeros(fft_n/2)
         
@@ -240,16 +241,20 @@ def get_spectral_frames(fft_n, frame, n_filters, low_Hz, up_Hz, sample_rate ):
             coef +=coefs[k]*np.cos(k*(2*j-1)*np.pi / 2*n_filters)
         frames_cepstral.append(round(coef,2))
         
-    return frames_cepstral
+    return np.around(np.array(frames_cepstral), decimals = 2)
 #%%
-def get_deltas(frames):
+def get_deltas(fft_n, n_filters, low_Hz, up_Hz, sample_rate, file, step, size):
+    frames = get_spectral_of_file(fft_n, n_filters, low_Hz, up_Hz, sample_rate, file,step,size)
     n = len(frames)
-    deltas = []
-    for i in range(n):
-        if i == 0:
-            deltas.append(frames[1]-frames[0])
-        elif i == len(frames): deltas.append(frames(n)- frames(n-1))
-        deltas.append(frames[n+1]-frames[i-1])
+    deltas = [[""]*n_filters]*n
+    for k in range(n_filters): 
+        for i in range(n):
+            if i == 0:
+                deltas[0][k]=frames[1][k]-frames[0][k]
+            elif i == n-1:
+                deltas[n-1][k]=frames[n-1][k]- frames[n-2][k]
+            else:
+                deltas[i][k]=frames[i+1][k]-frames[i-1][k]
     return deltas
 
 #%%
@@ -277,18 +282,43 @@ def get_samples_from_file(file):  #это новая функция, получ�
     return b
 #%%
 def get_spectral_of_file(fft_n, n_filters, low_Hz, up_Hz, sample_rate, file, step, size): # слайсами делит семплы и выдает массив в котором каждый элемент это вектор спектрала и дельты
-    spectrals = np.array([])
-    deltas = np.array([])
+    spectrals = []
+    deltas = []
     samples = np.array(get_samples_from_file(file))
-    k = np.mod((len(samples) - size), step)
+    k = np.floor_divide((len(samples) - size), step)
+    result = []
     for i in range(k):
-        np.append(spectrals, np.array(get_spectral_frames(fft_n, samples[i*step:i*step+size], 
-                                                 n_filters, low_Hz, up_Hz, sample_rate)))
-        np.append(deltas, np.array(get_deltas(fft_n, samples[i*step:i*step+size], 
-                                                 n_filters, low_Hz, up_Hz, sample_rate)))
-        i+=1
+        empty = []
+        spectrals.append(get_spectral_frames(fft_n, samples[i*step:i*step+size], 
+                                                 n_filters, low_Hz, up_Hz, sample_rate))
+        empty.append(get_spectral_frames(fft_n, samples[i*step:i*step+size], 
+                                                 n_filters, low_Hz, up_Hz, sample_rate))                                         
+        #deltas.append(get_deltas(fft_n, samples[i*step:i*step+size], n_filters, low_Hz, up_Hz, sample_rate))
+        #empty.append(get_deltas(fft_n, samples[i*step:i*step+size], n_filters, low_Hz, up_Hz, sample_rate))
+        #result.append(empty)
+    #result = [np.concatenate(x) for x in zip(spectrals,deltas)]
+    return spectrals
+
+#%%
+def get_spectral_and_deltas_of_file(fft_n, n_filters, low_Hz, up_Hz, sample_rate, file, step, size): # слайсами делит семплы и выдает массив в котором каждый элемент это вектор спектрала и дельты
+    spectrals = []
+    deltas = []
+    samples = np.array(get_samples_from_file(file))
+    k = np.floor_divide((len(samples) - size), step)
+    result = []
+    for i in range(k):
+        empty = []
+        spectrals.append(get_spectral_frames(fft_n, samples[i*step:i*step+size], 
+                                                 n_filters, low_Hz, up_Hz, sample_rate))
+        empty.append(get_spectral_frames(fft_n, samples[i*step:i*step+size], 
+                                                 n_filters, low_Hz, up_Hz, sample_rate))                                         
+        deltas.append(get_deltas(fft_n, samples[i*step:i*step+size], n_filters, low_Hz, up_Hz, sample_rate, file, step,size fft_n, n_filters, low_Hz, up_Hz, sample_rate, file, step, siz))
+        empty.append(get_deltas(fft_n, samples[i*step:i*step+size], n_filters, low_Hz, up_Hz, sample_rate, file, step, size))
+        result.append(empty)
     result = [np.concatenate(x) for x in zip(spectrals,deltas)]
     return result
+
+
 #%%
 
 def write_csv(directory,fft_n, n_filters, low_Hz, up_Hz, sample_rate, file, step, size):
@@ -299,4 +329,9 @@ def write_csv(directory,fft_n, n_filters, low_Hz, up_Hz, sample_rate, file, step
             result = get_spectral_of_file(fft_n, n_filters, low_Hz, up_Hz, sample_rate, file, step, size)
             csv.writer(open('blank.csv', 'w', newline=''), delimiter=',').writerows(result)
     
-        
+#%%
+len(get_spectral_of_file(512, 25, 300, 8000, 16000, "C:\\Users\\User\Desktop\VAD\music.wav", 160, 400))
+#%%
+get_spectral_frames(512, frame, n_filters, low_Hz, up_Hz, sample_rate )
+#%%
+len(get_deltas(512, 25, 300, 8000, 16000, "C:\\Users\\User\Desktop\VAD\music.wav", 160, 400))
