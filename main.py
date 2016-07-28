@@ -95,6 +95,12 @@ if __name__ == '__main__':
 
     files_counter = 0
 
+    #
+    #   features is a list of each file frame features:
+    #       [all_file1_frames_features, all_file2_frame_features, ...]
+    #
+    #   See utils.write_features
+    #
     while files_counter < len(speech_files):
         if files_counter + FILES_PER_STEP < len(speech_files):
             features = pool.map(process_file, speech_files[files_counter:files_counter + FILES_PER_STEP])

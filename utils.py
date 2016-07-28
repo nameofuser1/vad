@@ -49,11 +49,11 @@ def create_table_header(mfcc_len):
 
 def write_features(writer, features, voiced):
 
-    for frames_features in features:
+    for file_features in features:
         rows_to_write = []
 
-        for i in range(len(frames_features)):
-            frame_features = frames_features[i]
+        for i in range(len(file_features)):
+            frame_features = file_features[i]
             row = np.concatenate((frame_features[0], frame_features[1], frame_features[2], [voiced]))
             rows_to_write.append(row)
 
