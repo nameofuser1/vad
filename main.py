@@ -1,15 +1,20 @@
 import csv
 import os
-import numpy as np
+from multiprocessing import Pool
+
 from scipy.io import wavfile
 
 from mfcc import get_mel_filterbanks, get_mfcc, get_deltas
-from utils import create_table_header, split_into_frames, get_frames_energies
-
-from multiprocessing import Pool, Lock
+from utils import create_table_header, split_into_frames, get_frames_energies, write_features
 
 PROCESSES_NUM = 4
+MAX_SPEECH_FILES = 9999999
+MAX_NOISE_FILES = 9999999
 
+# To prevent memory overflow
+FILES_PER_STEP = 30
+
+# Set your path
 MUSAN_PATH = '/home/kript0n/Documents/musan'
 SPEECH_PATH = MUSAN_PATH + '/speech'
 NOISE_PATH = MUSAN_PATH + '/noise'
@@ -20,6 +25,9 @@ LOW_HZ = 300
 HIGH_HZ = 8000
 MFCC_NUM = 13
 FFT_N = 512
+
+NONE_VOICED = 0
+VOICED = 1
 
 
 def process_file(fname):
@@ -65,25 +73,49 @@ def process_file(fname):
     return features
 
 
+# For you Edward
+def scale_features(features):
+    pass
+
+
 if __name__ == '__main__':
+    pool = Pool(PROCESSES_NUM)
+
     writer = csv.writer(open('blank.csv', 'w'), delimiter=',')
     writer.writerows([create_table_header(MFCC_NUM)])
 
     speech_files = [SPEECH_PATH + '/' + file for file in os.listdir(SPEECH_PATH) if file.endswith('.wav')]
+    noise_files = [NOISE_PATH + '/' + file for file in os.listdir(NOISE_PATH) if file.endswith('.wav')]
 
-    pool = Pool(PROCESSES_NUM)
-    features = pool.map(process_file, speech_files)
+    if len(speech_files) > MAX_SPEECH_FILES:
+        speech_files = speech_files[:MAX_SPEECH_FILES]
 
-    for frames_features in features:
-        mfcc_vec_len = len(frames_features[0][0])
-        first_deltas_vec_len = len(frames_features[0][1])
-        second_deltas_vec_len = len(frames_features[0][2])
+    if len(noise_files) > MAX_NOISE_FILES:
+        noise_files = noise_files[:MAX_NOISE_FILES]
 
-        rows_to_write = []
+    files_counter = 0
 
-        for i in range(len(frames_features)):
-            frame_features = frames_features[i]
-            row = np.concatenate((frame_features[0], frame_features[1], frame_features[2], [1]))
-            rows_to_write.append(row)
+    while files_counter < len(speech_files):
+        if files_counter + FILES_PER_STEP < len(speech_files):
+            features = pool.map(process_file, speech_files[files_counter:files_counter + FILES_PER_STEP])
+        else:
+            features = pool.map(process_file, speech_files[files_counter:])
 
-        writer.writerows(rows_to_write)
+        write_features(writer, features, VOICED)
+        files_counter += FILES_PER_STEP
+
+    files_counter = 0
+
+    while files_counter < len(noise_files):
+        if files_counter + FILES_PER_STEP < len(noise_files):
+            features = pool.map(process_file, noise_files[files_counter:files_counter + FILES_PER_STEP])
+        else:
+            features = pool.map(process_file, noise_files[files_counter:])
+
+        write_features(writer, features, NONE_VOICED)
+        files_counter += FILES_PER_STEP
+
+
+
+
+

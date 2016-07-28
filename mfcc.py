@@ -63,7 +63,7 @@ def get_mel_filterbanks(low_hz, up_hz, fft_n, n_filters, sample_rate):
 #
 def get_mfcc(frame, fft_n, filterbank):
     n_mfcc = len(filterbank)
-    frame_after_fft = np.absolute(np.fft.fft(frame, fft_n)[0:fft_n/2]/fft_n)
+    frame_after_fft = np.absolute(np.fft.fft(frame, fft_n)[0:fft_n/2]/np.float64(fft_n))
     coefs = []
 
     for filter in filterbank:

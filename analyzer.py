@@ -1,6 +1,7 @@
 from numpy import fft
 import numpy as np
 
+
 class Noise(object):
 
     def __init__(self, fft_n):

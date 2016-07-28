@@ -45,3 +45,18 @@ def create_table_header(mfcc_len):
     header.append('voiced')
 
     return header
+
+
+def write_features(writer, features, voiced):
+
+    for frames_features in features:
+        rows_to_write = []
+
+        for i in range(len(frames_features)):
+            frame_features = frames_features[i]
+            row = np.concatenate((frame_features[0], frame_features[1], frame_features[2], [voiced]))
+            rows_to_write.append(row)
+
+        writer.writerows(rows_to_write)
+
+
