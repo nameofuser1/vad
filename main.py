@@ -1,22 +1,22 @@
 from mfcc import get_mfcc, get_deltas
 import csv
 import numpy as np
-from functools import partial
+from utils import get_energy_threshold, split_into_frames, get_frames_energies
+from scipy.io import wavfile
 
 
 def process_file(fname, sample_rate, frame_size, frame_step, low_hz, high_hz, n_mfcc, fft_n):
-    f_raw = b''
+    passed_frames = b''
 
-    with open(fname, 'rb') as wav_file:
-        # passing WAV headers
-        wav_file.read(44)
+    f_raw = wavfile.read(fname)[1]
 
-        for chunk in iter(partial(wav_file.read, 1024), ''):
-            f_raw += chunk
+    frames = split_into_frames(f_raw, frame_size, frame_step)
+    frames_energies = get_frames_energies(frames)
+    energy_threshold = get_energy_threshold(frames_energies)
 
-    # or ceil? samples number equal frame_size will give us 0 instead of 1
-    frames_number = np.floor_divide((len(f_raw) - frame_size), frame_step)
-    print("Frames in file " + fname + ": " + str(frames_number))
+    print(len(frames))
+    print(len(frames_energies))
+    print(energy_threshold)
 
     frames_buffer_size = 5
     frames_buffer = []
@@ -24,11 +24,13 @@ def process_file(fname, sample_rate, frame_size, frame_step, low_hz, high_hz, n_
     processing_frame_index = 2
 
     features = []
+    counter = 0
+    for frame, energy in zip(frames, frames_energies):
+        counter += 1
+        if energy < energy_threshold:
+            continue
 
-    offset = 0
-    for i in range(frames_number):
-        frame = np.frombuffer(f_raw[offset:offset+frame_size], dtype=np.int8)
-        offset += frame_step
+        passed_frames += frame.tobytes()
 
         if len(frames_buffer) < frames_buffer_size:
             frames_buffer.append(get_mfcc(fft_n, frame, n_mfcc, low_hz, high_hz, sample_rate))
@@ -54,8 +56,10 @@ def process_file(fname, sample_rate, frame_size, frame_step, low_hz, high_hz, n_
             frames_buffer.pop(0)
             frames_buffer.append(get_mfcc(fft_n, frame, n_mfcc, low_hz, high_hz, sample_rate))
 
-            if i % 100 == 0:
-                print('Processed ' + str(i) + ' frames of ' + str(frames_number))
+            if counter % 100 == 0:
+                print('Processed ' + str(counter) + ' frames of ' + str(len(frames)))
+
+    wavfile.write('passed.wav', 16000, np.frombuffer(passed_frames, dtype=np.int16))
 
     return features
 
@@ -79,7 +83,7 @@ def create_table_header(mfcc_len, first_deltas_len, second_deltas_len):
 
 if __name__ == '__main__':
     writer = csv.writer(open('blank.csv', 'w'), delimiter=',')
-    frames_features = process_file('./music.wav', 16000, 400, 160, 300, 8000, 13, 512)
+    frames_features = process_file('./speech-librivox-0000.wav', 16000, 400, 160, 300, 8000, 13, 512)
     header = []
 
     print(frames_features[0])
