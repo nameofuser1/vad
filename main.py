@@ -1,22 +1,34 @@
-from mfcc import get_mfcc, get_deltas
 import csv
+import os
 import numpy as np
-from utils import get_energy_threshold, split_into_frames, get_frames_energies
 from scipy.io import wavfile
 
+from mfcc import get_mel_filterbanks, get_mfcc, get_deltas
+from utils import create_table_header, split_into_frames, get_frames_energies
 
-def process_file(fname, sample_rate, frame_size, frame_step, low_hz, high_hz, n_mfcc, fft_n):
-    passed_frames = b''
+from multiprocessing import Pool, Lock
 
-    f_raw = wavfile.read(fname)[1]
+PROCESSES_NUM = 4
 
-    frames = split_into_frames(f_raw, frame_size, frame_step)
+MUSAN_PATH = '/home/kript0n/Documents/musan'
+SPEECH_PATH = MUSAN_PATH + '/speech'
+NOISE_PATH = MUSAN_PATH + '/noise'
+
+FRAME_SIZE = 400
+FRAME_STEP = 160
+LOW_HZ = 300
+HIGH_HZ = 8000
+MFCC_NUM = 13
+FFT_N = 512
+
+
+def process_file(fname):
+    sample_rate, f_raw = wavfile.read(fname)
+
+    frames = split_into_frames(f_raw, FRAME_SIZE, FRAME_STEP)
     frames_energies = get_frames_energies(frames)
-    energy_threshold = get_energy_threshold(frames_energies)
 
-    print(len(frames))
-    print(len(frames_energies))
-    print(energy_threshold)
+    mel_filterbank = get_mel_filterbanks(LOW_HZ, HIGH_HZ, FFT_N, MFCC_NUM, sample_rate)
 
     frames_buffer_size = 5
     frames_buffer = []
@@ -24,16 +36,10 @@ def process_file(fname, sample_rate, frame_size, frame_step, low_hz, high_hz, n_
     processing_frame_index = 2
 
     features = []
-    counter = 0
+
     for frame, energy in zip(frames, frames_energies):
-        counter += 1
-        if energy < energy_threshold:
-            continue
-
-        passed_frames += frame.tobytes()
-
         if len(frames_buffer) < frames_buffer_size:
-            frames_buffer.append(get_mfcc(fft_n, frame, n_mfcc, low_hz, high_hz, sample_rate))
+            frames_buffer.append(get_mfcc(frame, FFT_N, mel_filterbank))
         else:
             processing_frame_mfcc = frames_buffer[processing_frame_index]
 
@@ -54,49 +60,30 @@ def process_file(fname, sample_rate, frame_size, frame_step, low_hz, high_hz, n_
 
             # Update circular buffer
             frames_buffer.pop(0)
-            frames_buffer.append(get_mfcc(fft_n, frame, n_mfcc, low_hz, high_hz, sample_rate))
-
-            if counter % 100 == 0:
-                print('Processed ' + str(counter) + ' frames of ' + str(len(frames)))
-
-    wavfile.write('passed.wav', 16000, np.frombuffer(passed_frames, dtype=np.int16))
+            frames_buffer.append(get_mfcc(frame, FFT_N, mel_filterbank))
 
     return features
 
 
-def create_table_header(mfcc_len, first_deltas_len, second_deltas_len):
-    header = []
-
-    for i in range(mfcc_len):
-        header.append('MFCC Coef' + str(i + 1))
-
-    for i in range(first_deltas_len):
-        header.append('First delta' + str(i + 1))
-
-    for i in range(second_deltas_len):
-        header.append('Second delta' + str(i + 1))
-
-    header.append('voiced')
-
-    return header
-
-
 if __name__ == '__main__':
     writer = csv.writer(open('blank.csv', 'w'), delimiter=',')
-    frames_features = process_file('./speech-librivox-0000.wav', 16000, 400, 160, 300, 8000, 13, 512)
-    header = []
+    writer.writerows([create_table_header(MFCC_NUM)])
 
-    print(frames_features[0])
+    speech_files = [SPEECH_PATH + '/' + file for file in os.listdir(SPEECH_PATH) if file.endswith('.wav')]
 
-    mfcc_vec_len = len(frames_features[0][0])
-    first_deltas_vec_len = len(frames_features[0][1])
-    second_deltas_vec_len = len(frames_features[0][2])
+    pool = Pool(PROCESSES_NUM)
+    features = pool.map(process_file, speech_files)
 
-    rows_to_write = [create_table_header(mfcc_vec_len, first_deltas_vec_len, second_deltas_vec_len)]
+    for frames_features in features:
+        mfcc_vec_len = len(frames_features[0][0])
+        first_deltas_vec_len = len(frames_features[0][1])
+        second_deltas_vec_len = len(frames_features[0][2])
 
-    for i in range(len(frames_features)):
-        frame_features = frames_features[i]
-        row = np.concatenate((frame_features[0], frame_features[1], frame_features[2], [1]))
-        rows_to_write.append(row)
+        rows_to_write = []
 
-    writer.writerows(rows_to_write)
+        for i in range(len(frames_features)):
+            frame_features = frames_features[i]
+            row = np.concatenate((frame_features[0], frame_features[1], frame_features[2], [1]))
+            rows_to_write.append(row)
+
+        writer.writerows(rows_to_write)

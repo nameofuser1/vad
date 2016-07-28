@@ -10,8 +10,7 @@ class Noise(object):
         self.n_noise_frames = 0
         self.frames_buffer = []
 
-
-    def substraction(self, frame):
+    def subtraction(self, frame):
         return fft.fft(frame*np.hanning(self.fft_n), self.fft_n)[0:self.fft_n/2] - self.spectral_mean
 
     def calculate_spectral_mean(self):

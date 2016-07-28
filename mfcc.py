@@ -26,7 +26,7 @@ def hz_from_mel(mels):
     return mels_hz
 
 
-def make_mel_bins(sample_rate, hzs, fft_n):
+def convert_to_fft_bins(sample_rate, hzs, fft_n):
     mel_bin_numbers = []
 
     for hz in hzs:
@@ -36,13 +36,10 @@ def make_mel_bins(sample_rate, hzs, fft_n):
 
 
 def get_mel_filterbanks(low_hz, up_hz, fft_n, n_filters, sample_rate):
-
     hzs = hz_from_mel(mel_from_hz(low_hz, up_hz, n_filters))
 
-    print('Len of hz points ' + str(len(hzs)))
-
     # Convert hz to FFT bin number
-    mels_bin = make_mel_bins(sample_rate, hzs, fft_n)
+    mels_bin = convert_to_fft_bins(sample_rate, hzs, fft_n)
 
     K = np.arange(0, fft_n/2, 1)
     filters = []
@@ -61,25 +58,28 @@ def get_mel_filterbanks(low_hz, up_hz, fft_n, n_filters, sample_rate):
     return filters
 
 
-def get_mfcc(fft_n, frame, n_filters, low_hz, up_hz, sample_rate):
+#
+#   Number of MFCC is equal number of filters in filterbank
+#
+def get_mfcc(frame, fft_n, filterbank):
+    n_mfcc = len(filterbank)
     frame_after_fft = np.absolute(np.fft.fft(frame, fft_n)[0:fft_n/2]/fft_n)
-    filters = get_mel_filterbanks(low_hz, up_hz, fft_n, n_filters, sample_rate)
     coefs = []
 
-    for filter in filters:
+    for filter in filterbank:
         coefs.append(np.log(np.dot(filter, frame_after_fft)))
 
-    frames_cepstral = []
+    mfcc = []
 
-    for k in range(n_filters):
+    for k in range(n_mfcc):
         coef = 0
 
-        for j in range(n_filters):
-            coef += coefs[k]*np.cos(k*(2*j-1)*np.pi / 2*n_filters)
+        for j in range(n_mfcc):
+            coef += coefs[k]*np.cos(k*(2*j-1)*np.pi / (2*n_mfcc))
 
-        frames_cepstral.append(round(coef,2))
+        mfcc.append(round(coef, 4))
 
-    return np.around(np.array(frames_cepstral), decimals = 2)
+    return np.around(np.array(mfcc), decimals=2)
 
 
 def get_deltas(mfcc2, mfcc1):

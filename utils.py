@@ -28,3 +28,20 @@ def get_frames_energies(frames):
         en = np.append(en, get_energy(frame))
 
     return en
+
+
+def create_table_header(mfcc_len):
+    header = []
+
+    for i in range(mfcc_len):
+        header.append('MFCC Coef' + str(i + 1))
+
+    for i in range(mfcc_len):
+        header.append('First delta' + str(i + 1))
+
+    for i in range(mfcc_len):
+        header.append('Second delta' + str(i + 1))
+
+    header.append('voiced')
+
+    return header
