@@ -23,6 +23,7 @@ FRAME_SIZE = 400
 FRAME_STEP = 160
 LOW_HZ = 300
 HIGH_HZ = 8000
+FILTERBANKS_NUM = 26
 MFCC_NUM = 13
 FFT_N = 512
 
@@ -34,7 +35,7 @@ def process_file(fname):
     sample_rate, f_raw = wavfile.read(fname)
 
     frames = split_into_frames(f_raw, FRAME_SIZE, FRAME_STEP)
-    mel_filterbank = get_mel_filterbanks(LOW_HZ, HIGH_HZ, FFT_N, MFCC_NUM, sample_rate)
+    mel_filterbank = get_mel_filterbanks(LOW_HZ, HIGH_HZ, FFT_N, FILTERBANKS_NUM, sample_rate)
 
     frames_buffer_size = 5
     frames_buffer = []
@@ -45,7 +46,7 @@ def process_file(fname):
 
     for frame in frames:
         if len(frames_buffer) < frames_buffer_size:
-            frames_buffer.append(get_mfcc(frame, FFT_N, mel_filterbank))
+            frames_buffer.append(get_mfcc(frame, FFT_N, mel_filterbank, MFCC_NUM))
         else:
             processing_frame_mfcc = frames_buffer[processing_frame_index]
 
@@ -66,7 +67,7 @@ def process_file(fname):
 
             # Update circular buffer
             frames_buffer.pop(0)
-            frames_buffer.append(get_mfcc(frame, FFT_N, mel_filterbank))
+            frames_buffer.append(get_mfcc(frame, FFT_N, mel_filterbank, MFCC_NUM))
 
     return features
 

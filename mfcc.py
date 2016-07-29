@@ -43,37 +43,40 @@ def get_mel_filterbanks(low_hz, up_hz, fft_n, n_filters, sample_rate):
     mels_bin = convert_to_fft_bins(sample_rate, hzs, fft_n)
 
     K = np.arange(0, fft_n/2, 1)
-    filters = []
+    filterbank = np.zeros((n_filters, fft_n/2))
 
     for m in range(1, n_filters+1):
-        filterbank = np.zeros(fft_n/2)
-
         for k in K:
             if (k >= mels_bin[m-1]) and (k <= mels_bin[m]):
-                filterbank[k] = (k - mels_bin[m-1] + 0.0) / (mels_bin[m] - mels_bin[m-1] + 0.0)
+                filterbank[m-1, k] = (k - mels_bin[m-1] + 0.0) / (mels_bin[m] - mels_bin[m-1] + 0.0)
 
             elif (k >= mels_bin[m]) and (k <= mels_bin[m+1]):
-                filterbank[k] = (mels_bin[m+1] - k + 0.0) / (mels_bin[m+1] - mels_bin[m] + 0.0)
+                filterbank[m-1, k] = (mels_bin[m+1] - k + 0.0) / (mels_bin[m+1] - mels_bin[m] + 0.0)
 
-        filters.append(filterbank)
-
-    return filters
+    return filterbank
 
 
 #
 #   Number of MFCC is equal number of filters in filterbank
 #
-def get_mfcc(frame, fft_n, filterbank):
-    n_mfcc = len(filterbank)
+def get_mfcc(frame, fft_n, filterbank, mfcc_n):
     frame_after_fft = np.square(np.absolute(np.fft.fft(frame, fft_n)[0:fft_n/2]/np.float64(fft_n)))
-    coefs = []
+    coefs = np.log(np.dot(frame_after_fft, filterbank.T))
+    mfcc = dct(coefs, type=2, norm='ortho')[:mfcc_n]
 
-    for filter in filterbank:
-        coefs.append(np.log(np.dot(filter, frame_after_fft)))
-
-    mfcc = dct(coefs, type=2, norm='ortho')[:n_mfcc]
-    return np.around(np.array(mfcc), decimals=4)
+    return lifter(mfcc)
 
 
 def get_deltas(mfcc2, mfcc1):
     return np.subtract(mfcc2, mfcc1)
+
+
+def lifter(cepstra, L=22):
+    if L > 0:
+        ncoeff = np.shape(cepstra)[0]
+        n = np.arange(ncoeff)
+        lift = 1 + (L/2.)*np.sin(np.pi*n/L)
+        return lift*cepstra
+    else:
+        # values of L <= 0, do nothing
+        return cepstra
