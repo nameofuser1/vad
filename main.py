@@ -34,8 +34,6 @@ def process_file(fname):
     sample_rate, f_raw = wavfile.read(fname)
 
     frames = split_into_frames(f_raw, FRAME_SIZE, FRAME_STEP)
-    frames_energies = get_frames_energies(frames)
-
     mel_filterbank = get_mel_filterbanks(LOW_HZ, HIGH_HZ, FFT_N, MFCC_NUM, sample_rate)
 
     frames_buffer_size = 5
@@ -45,7 +43,7 @@ def process_file(fname):
 
     features = []
 
-    for frame, energy in zip(frames, frames_energies):
+    for frame in frames:
         if len(frames_buffer) < frames_buffer_size:
             frames_buffer.append(get_mfcc(frame, FFT_N, mel_filterbank))
         else:
