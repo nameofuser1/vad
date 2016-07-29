@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.fftpack import dct
 
 
 def mel_from_hz(first_hz, upper_hz, n_bins):
@@ -52,7 +53,8 @@ def get_mel_filterbanks(low_hz, up_hz, fft_n, n_filters, sample_rate):
                 filterbank[k] = (k - mels_bin[m-1] + 0.0) / (mels_bin[m] - mels_bin[m-1] + 0.0)
 
             elif (k >= mels_bin[m]) and (k <= mels_bin[m+1]):
-                filterbank[k] = -(k - mels_bin[m+1] + 0.0) / (mels_bin[m+1] - mels_bin[m] + 0.0)
+                filterbank[k] = (mels_bin[m+1] - k + 0.0) / (mels_bin[m+1] - mels_bin[m] + 0.0)
+
         filters.append(filterbank)
 
     return filters
@@ -69,17 +71,8 @@ def get_mfcc(frame, fft_n, filterbank):
     for filter in filterbank:
         coefs.append(np.log(np.dot(filter, frame_after_fft)))
 
-    mfcc = []
-
-    for k in range(n_mfcc):
-        coef = 0
-
-        for j in range(n_mfcc):
-            coef += coefs[k]*np.cos(k*(2*j-1)*np.pi / (2*n_mfcc))
-
-        mfcc.append(round(coef, 4))
-
-    return np.around(np.array(mfcc), decimals=2)
+    mfcc = dct(coefs, type=2, norm='ortho')[:n_mfcc]
+    return np.around(np.array(mfcc), decimals=4)
 
 
 def get_deltas(mfcc2, mfcc1):
