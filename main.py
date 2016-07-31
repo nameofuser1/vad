@@ -73,7 +73,8 @@ def process_file(args):
             frames_buffer.append(get_mfcc(frame, FFT_N, mel_filterbank, MFCC_NUM))
 
     processed_files = counter_queue.get() + 1
-    print("Processed " + str(processed_files) + ' files')
+    if processed_files % 5 == 0:
+        print("Processed " + str(processed_files) + ' files')
     counter_queue.put(processed_files)
 
     return features
