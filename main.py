@@ -5,7 +5,7 @@ from multiprocessing import Pool
 from scipy.io import wavfile
 
 from mfcc import get_mel_filterbanks, get_mfcc, get_deltas
-from utils import create_table_header, split_into_frames, get_frames_energies, write_features
+from utils import create_table_header, split_into_frames, scale_features, write_features
 
 PROCESSES_NUM = 4
 MAX_SPEECH_FILES = 9999999
@@ -72,11 +72,6 @@ def process_file(fname):
     return features
 
 
-# For you Edward
-def scale_features(features):
-    pass
-
-
 if __name__ == '__main__':
     pool = Pool(PROCESSES_NUM)
 
@@ -106,6 +101,7 @@ if __name__ == '__main__':
         else:
             features = pool.map(process_file, speech_files[files_counter:])
 
+        features = scale_features(features)
         write_features(writer, features, VOICED)
         files_counter += FILES_PER_STEP
 
@@ -117,6 +113,7 @@ if __name__ == '__main__':
         else:
             features = pool.map(process_file, noise_files[files_counter:])
 
+        features = scale_features(features)
         write_features(writer, features, NONE_VOICED)
         files_counter += FILES_PER_STEP
 
