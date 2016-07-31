@@ -1,6 +1,6 @@
 import csv
 import os
-from multiprocessing import Pool
+from multiprocessing import Pool, Manager
 
 from scipy.io import wavfile
 
@@ -31,7 +31,10 @@ NONE_VOICED = 0
 VOICED = 1
 
 
-def process_file(fname):
+def process_file(args):
+    fname = args[0]
+    counter_queue = args[1]
+
     sample_rate, f_raw = wavfile.read(fname)
 
     frames = split_into_frames(f_raw, FRAME_SIZE, FRAME_STEP)
@@ -69,17 +72,23 @@ def process_file(fname):
             frames_buffer.pop(0)
             frames_buffer.append(get_mfcc(frame, FFT_N, mel_filterbank, MFCC_NUM))
 
+    processed_files = counter_queue.get() + 1
+    print("Processed " + str(processed_files) + ' files')
+    counter_queue.put(processed_files)
+
     return features
 
 
 if __name__ == '__main__':
     pool = Pool(PROCESSES_NUM)
+    counter_queue = Manager().Queue(1)
+    counter_queue.put(0)
 
     writer = csv.writer(open('blank.csv', 'w'), delimiter=',')
     writer.writerows([create_table_header(MFCC_NUM)])
 
-    speech_files = [SPEECH_PATH + '/' + file for file in os.listdir(SPEECH_PATH) if file.endswith('.wav')]
-    noise_files = [NOISE_PATH + '/' + file for file in os.listdir(NOISE_PATH) if file.endswith('.wav')]
+    speech_files = [(SPEECH_PATH + '/' + file, counter_queue) for file in os.listdir(SPEECH_PATH) if file.endswith('.wav')]
+    noise_files = [(NOISE_PATH + '/' + file, counter_queue) for file in os.listdir(NOISE_PATH) if file.endswith('.wav')]
 
     if len(speech_files) > MAX_SPEECH_FILES:
         speech_files = speech_files[:MAX_SPEECH_FILES]
@@ -88,13 +97,6 @@ if __name__ == '__main__':
         noise_files = noise_files[:MAX_NOISE_FILES]
 
     files_counter = 0
-
-    #
-    #   features is a list of each file frame features:
-    #       [all_file1_frames_features, all_file2_frame_features, ...]
-    #
-    #   See utils.write_features
-    #
     while files_counter < len(speech_files):
         if files_counter + FILES_PER_STEP < len(speech_files):
             features = pool.map(process_file, speech_files[files_counter:files_counter + FILES_PER_STEP])
@@ -106,7 +108,6 @@ if __name__ == '__main__':
         files_counter += FILES_PER_STEP
 
     files_counter = 0
-
     while files_counter < len(noise_files):
         if files_counter + FILES_PER_STEP < len(noise_files):
             features = pool.map(process_file, noise_files[files_counter:files_counter + FILES_PER_STEP])
