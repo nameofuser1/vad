@@ -8,11 +8,11 @@ from mfcc import get_mel_filterbanks, get_mfcc, get_deltas
 from utils import create_table_header, split_into_frames, scale_features, write_features
 
 PROCESSES_NUM = 4
-MAX_SPEECH_FILES = 400
-MAX_NOISE_FILES = 600
+MAX_SPEECH_FILES = 600
+MAX_NOISE_FILES = 0
 
 # To prevent memory overflow
-FILES_PER_STEP = 40
+FILES_PER_STEP = 30
 
 # Set your path
 MUSAN_PATH = '/home/kript0n/Documents/musan'
@@ -85,11 +85,13 @@ if __name__ == '__main__':
     counter_queue = Manager().Queue(1)
     counter_queue.put(0)
 
-    voiced_writer = csv.writer(open('voiced.csv', 'w'), delimiter=',')
-    voiced_writer.writerows([create_table_header(MFCC_NUM)])
+    if MAX_SPEECH_FILES > 0:
+        voiced_writer = csv.writer(open('voiced.csv', 'w'), delimiter=',')
+        voiced_writer.writerows([create_table_header(MFCC_NUM)])
 
-    unvoiced_writer = csv.writer(open('unvoiced.csv', 'w'), delimiter=',')
-    unvoiced_writer.writerows([create_table_header(MFCC_NUM)])
+    if MAX_NOISE_FILES > 0:
+        unvoiced_writer = csv.writer(open('unvoiced.csv', 'w'), delimiter=',')
+        unvoiced_writer.writerows([create_table_header(MFCC_NUM)])
 
     speech_files = []
     noise_files = []
