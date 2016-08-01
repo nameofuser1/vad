@@ -8,16 +8,16 @@ from mfcc import get_mel_filterbanks, get_mfcc, get_deltas
 from utils import create_table_header, split_into_frames, scale_features, write_features
 
 PROCESSES_NUM = 4
-MAX_SPEECH_FILES = 9999999
-MAX_NOISE_FILES = 9999999
+MAX_SPEECH_FILES = 400
+MAX_NOISE_FILES = 400
 
 # To prevent memory overflow
 FILES_PER_STEP = 30
 
 # Set your path
 MUSAN_PATH = '/home/kript0n/Documents/musan'
-SPEECH_PATH = MUSAN_PATH + '/speech'
-NOISE_PATH = MUSAN_PATH + '/noise'
+SPEECH_PATH = [MUSAN_PATH + '/speech/librivox', MUSAN_PATH + '/speech/us-gov']
+NOISE_PATH = [MUSAN_PATH + '/noise/sound-bible', MUSAN_PATH + '/noise/free-sound']
 
 FRAME_SIZE = 400
 FRAME_STEP = 160
@@ -85,11 +85,20 @@ if __name__ == '__main__':
     counter_queue = Manager().Queue(1)
     counter_queue.put(0)
 
-    writer = csv.writer(open('blank.csv', 'w'), delimiter=',')
-    writer.writerows([create_table_header(MFCC_NUM)])
+    voiced_writer = csv.writer(open('voiced.csv', 'w'), delimiter=',')
+    voiced_writer.writerows([create_table_header(MFCC_NUM)])
 
-    speech_files = [(SPEECH_PATH + '/' + file, counter_queue) for file in os.listdir(SPEECH_PATH) if file.endswith('.wav')]
-    noise_files = [(NOISE_PATH + '/' + file, counter_queue) for file in os.listdir(NOISE_PATH) if file.endswith('.wav')]
+    unvoiced_writer = csv.writer(open('unvoiced.csv', 'w'), delimiter=',')
+    unvoiced_writer.writerows([create_table_header(MFCC_NUM)])
+
+    speech_files = []
+    noise_files = []
+
+    for path in SPEECH_PATH:
+        speech_files.extend([(path + '/' + file, counter_queue) for file in os.listdir(path) if file.endswith('.wav')])
+
+    for path in NOISE_PATH:
+        noise_files.extend([(path + '/' + file, counter_queue) for file in os.listdir(path) if file.endswith('.wav')])
 
     if len(speech_files) > MAX_SPEECH_FILES:
         speech_files = speech_files[:MAX_SPEECH_FILES]
@@ -105,7 +114,7 @@ if __name__ == '__main__':
             features = pool.map(process_file, speech_files[files_counter:])
 
         features = scale_features(features)
-        write_features(writer, features, VOICED)
+        write_features(voiced_writer, features, VOICED)
         files_counter += FILES_PER_STEP
 
     files_counter = 0
@@ -116,7 +125,7 @@ if __name__ == '__main__':
             features = pool.map(process_file, noise_files[files_counter:])
 
         features = scale_features(features)
-        write_features(writer, features, NONE_VOICED)
+        write_features(unvoiced_writer, features, NONE_VOICED)
         files_counter += FILES_PER_STEP
 
 
