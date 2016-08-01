@@ -71,16 +71,16 @@ def unshared_copy(inlist):
 
 # For you Edward
 def scale_features(features):
-    scaled_features = unshared_copy(features)
+    scaled_features = features #unshared_copy(features)
     mfcc_buffer = []
     delta1_buffer = []
     delta2_buffer = []
 
     for file_features in scaled_features:
         for frame_features in file_features:
-            mfcc_buffer.extend(frame_features[0])
-            delta1_buffer.extend(frame_features[1])
-            delta2_buffer.extend(frame_features[2])
+            mfcc_buffer.append(frame_features[0])
+            delta1_buffer.append(frame_features[1])
+            delta2_buffer.append(frame_features[2])
 
     mfcc_mean = np.mean(mfcc_buffer)
     delta1_mean = np.mean(delta1_buffer)

@@ -9,10 +9,10 @@ from utils import create_table_header, split_into_frames, scale_features, write_
 
 PROCESSES_NUM = 4
 MAX_SPEECH_FILES = 400
-MAX_NOISE_FILES = 400
+MAX_NOISE_FILES = 600
 
 # To prevent memory overflow
-FILES_PER_STEP = 30
+FILES_PER_STEP = 40
 
 # Set your path
 MUSAN_PATH = '/home/kript0n/Documents/musan'
@@ -116,6 +116,7 @@ if __name__ == '__main__':
         features = scale_features(features)
         write_features(voiced_writer, features, VOICED)
         files_counter += FILES_PER_STEP
+	del features
 
     files_counter = 0
     while files_counter < len(noise_files):
@@ -127,7 +128,7 @@ if __name__ == '__main__':
         features = scale_features(features)
         write_features(unvoiced_writer, features, NONE_VOICED)
         files_counter += FILES_PER_STEP
-
+	del features
 
 
 
