@@ -61,7 +61,7 @@ def get_mel_filterbanks(low_hz, up_hz, fft_n, n_filters, sample_rate):
 #
 def get_mfcc(frame, fft_n, filterbank, mfcc_n):
     frame_after_fft = np.square(np.absolute(np.fft.fft(frame, fft_n)[0:fft_n/2]/np.float64(fft_n)))
-    coefs = np.log(np.dot(frame_after_fft, filterbank.T))
+    coefs = np.log10(np.dot(frame_after_fft, filterbank.T))
     mfcc = dct(coefs, type=2, norm='ortho')[:mfcc_n]
 
     return lifter(mfcc)
