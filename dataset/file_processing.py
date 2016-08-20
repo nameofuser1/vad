@@ -1,11 +1,12 @@
-import numpy as np
 import csv
 import os
-
 from functools import partial
 from multiprocessing import Manager
+
+import numpy as np
 from scipy.io import wavfile
-from dataset.mfcc import get_mfcc, get_deltas
+
+from mfcc import get_mfcc, get_deltas
 
 counter_queue = Manager().Queue(1)
 counter_queue.put(0)
@@ -16,12 +17,15 @@ def create_pool_input(file_path, frame_size, frame_step, fft_n, fbank, mfcc_num,
     #   Create list of input for multiprocessing.Pool.map
     #
     global counter_queue
+
+    if transcription_path is not None:
+        transcription_path += '/' + file
     input = []
 
     input.extend([
                 (
                     file_path, frame_size, frame_step, fft_n, fbank, mfcc_num, counter_queue,
-                    transcription_path + '/' + file
+                    transcription_path
                 )
                 for file in os.listdir(file_path) if file.endswith('.wav')
                 ])

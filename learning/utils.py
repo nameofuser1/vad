@@ -1,53 +1,22 @@
 import numpy as np
 
+from config import VOICED_FNAME, VOICED_FEATURES_NUM, UNVOICED_FNAME, UNVOICED_FEATURES_NUM
+from dataset.file_processing import load_csv
 
-def cartesian(arrays, out=None):
-    """
-    Generate a cartesian product of input arrays.
 
-    Parameters
-    ----------
-    arrays : list of array-like
-        1-D arrays to form the cartesian product of.
-    out : ndarray
-        Array to place the cartesian product in.
+def load_files():
+    #
+    #   Load features and labels from files
+    #
+    voiced_features, voiced_res = load_csv(VOICED_FNAME, VOICED_FEATURES_NUM, dtype=np.float64)
+    unvoiced_features, unvoiced_res = load_csv(UNVOICED_FNAME, UNVOICED_FEATURES_NUM, dtype=np.float64)
 
-    Returns
-    -------
-    out : ndarray
-        2-D array of shape (M, len(arrays)) containing cartesian products
-        formed of input arrays.
+    features = np.concatenate([voiced_features, unvoiced_features])
+    del voiced_features
+    del unvoiced_features
 
-    Examples
-    --------
-    cartesian(([1, 2, 3], [4, 5], [6, 7]))
-    array([[1, 4, 6],
-           [1, 4, 7],
-           [1, 5, 6],
-           [1, 5, 7],
-           [2, 4, 6],
-           [2, 4, 7],
-           [2, 5, 6],
-           [2, 5, 7],
-           [3, 4, 6],
-           [3, 4, 7],
-           [3, 5, 6],
-           [3, 5, 7]])
+    labels = np.concatenate([voiced_res, unvoiced_res])
+    del voiced_res
+    del unvoiced_res
 
-    """
-
-    arrays = [np.asarray(x) for x in arrays]
-    dtype = arrays[0].dtype
-
-    n = np.prod([x.size for x in arrays])
-    if out is None:
-        out = np.zeros([n, len(arrays)], dtype=dtype)
-
-    m = n / arrays[0].size
-    out[:,0] = np.repeat(arrays[0], m)
-    if arrays[1:]:
-        cartesian(arrays[1:], out=out[0:m,1:])
-        for j in xrange(1, arrays[0].size):
-            out[j*m:(j+1)*m,1:] = out[0:m,1:]
-
-    return out
+    return features, labels

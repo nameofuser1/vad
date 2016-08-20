@@ -1,36 +1,34 @@
-from sklearn.cross_validation import cross_val_score
-from utils import cartesian
+import numpy as np
+from sklearn import grid_search
+from sklearn.tree import DecisionTreeClassifier
 
+from utils import load_files
 
-def find_optimal_parameters(cls, features, labels,  **kwargs):
-    keys = []
-    classifier_parameters_list = []
+if __name__ == '__main__':
+    cross_res_f = open('./cross_validation.res', 'w')
+    features, labels = load_files()
+    labels = labels.reshape((len(labels),))
+    print(len(features))
+    print(len(labels))
 
-    for key in kwargs:
-        keys.append(key)
-        classifier_parameters_list.append(kwargs.get(key))
+    depthes = np.arange(10, 41, 5)
+    min_split = np.arange(7, 23, 5)
+    min_leaves = np.arange(5, 21, 5)
+    dt_parameters = {'max_depth': depthes, 'min_samples_leaf': min_leaves, 'min_samples_split': min_split}
 
-    combinations = cartesian(classifier_parameters_list)
-    scores = []
+    print("Begin crossvalidation on DT")
+    dt = grid_search.GridSearchCV(DecisionTreeClassifier(), dt_parameters)
+    dt.fit(features, labels)
+    cross_res_f.write("Decision tree optimal : " + str(dt.best_params_) + " with score " + str(dt.best_score_) + "\r\n")
 
-    print('Begin cross-validation on ' + cls.__name__)
-    for i in range(len(combinations)):
-        classifier_params = {}
+    cross_res_f.close()
 
-        for j in range(len(keys)):
-            classifier_params[keys[j]] = combinations[i][j]
-
-        print(labels.dtype)
-        mean_score = cross_val_score(cls(**classifier_params),
-                                     features, labels, cv=4, n_jobs=-1, verbose=2).mean()
-
-        classifier_params['score'] = mean_score
-        print('Classifier params: ' + str(classifier_params))
-        scores.append(classifier_params)
-
-    optimal_parameters = {'score': 0}
-    for res in scores:
-        if res['score'] > optimal_parameters['score']:
-            optimal_parameters = res
-
-    return optimal_parameters
+"""
+    kernel = ('poly', 'rbf', 'sigmoid')
+    shrinking = (False, True)
+    svm_parameters = {'kernel': kernel, 'shrinking': shrinking}
+    print("Begin cross validation on SVC")
+    svc = grid_search.GridSearchCV(SVC(), svm_parameters, n_jobs=4, cv=4)
+    svc.fit(features, labels)
+    cross_res_f.write("SVM optimal: " + str(svc.best_params_) + ' with score ' + str(svc.best_score_) + "\r\n")
+"""

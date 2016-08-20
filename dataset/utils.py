@@ -1,15 +1,6 @@
 import numpy as np
 
 
-def unshared_copy(inlist):
-    if isinstance(inlist, list):
-        return list(map(unshared_copy, inlist))
-    elif isinstance(inlist, np.ndarray):
-        return np.array(map(unshared_copy, inlist))
-
-    return inlist
-
-
 # For you Edward
 def scale_features(features):
     scaled_features = features #unshared_copy(features)

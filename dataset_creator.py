@@ -1,5 +1,4 @@
 import csv
-import os
 from multiprocessing import Pool
 
 from config import *
