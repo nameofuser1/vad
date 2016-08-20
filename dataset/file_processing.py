@@ -1,12 +1,10 @@
+import numpy as np
 import csv
 import os
+
 from functools import partial
 from multiprocessing import Manager
-
-import numpy as np
 from scipy.io import wavfile
-
-from config import VOICED_FNAME, VOICED_FEATURES_NUM, UNVOICED_FNAME, UNVOICED_FEATURES_NUM
 from dataset.mfcc import get_mfcc, get_deltas
 
 counter_queue = Manager().Queue(1)
@@ -180,7 +178,7 @@ def load_csv(fname, items_num, columns_used=None, memmap=False, dtype=np.float32
             feature_dim = len(header)-1
 
         features = np.zeros((items_num, feature_dim), dtype=dtype)
-        results = np.zeros((items_num, 1), dtype=np.uint8)
+        results = np.zeros((items_num, 1), dtype=np.int32)
 
         for i in range(items_num):
             line = np.asarray(reader.next(), dtype=dtype)
@@ -190,24 +188,6 @@ def load_csv(fname, items_num, columns_used=None, memmap=False, dtype=np.float32
             else:
                 np.put(features[i], np.arange(0, feature_dim), line[:-1])
 
-            results[i] = line[-1]
+            results[i] = int(line[-1])
 
         return features, results
-
-
-def load_files():
-    #
-    #   Load features and labels from files
-    #
-    voiced_features, voiced_res = load_csv(VOICED_FNAME, VOICED_FEATURES_NUM, dtype=np.float64)
-    unvoiced_features, unvoiced_res = load_csv(UNVOICED_FNAME, UNVOICED_FEATURES_NUM, dtype=np.float64)
-
-    features = np.concatenate([voiced_features, unvoiced_features])
-    del voiced_features
-    del unvoiced_features
-
-    results = np.concatenate([voiced_res, unvoiced_res])
-    del voiced_res
-    del unvoiced_res
-
-    return features, results

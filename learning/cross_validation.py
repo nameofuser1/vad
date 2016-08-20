@@ -1,33 +1,36 @@
 from sklearn.cross_validation import cross_val_score
-from sklearn.tree import DecisionTreeClassifier
-
-from dataset.file_processing import load_files
+from utils import cartesian
 
 
-def find_optimal_parameters(depthes, samples_leaf, samples_split):
-    features, labels = load_files()
-    print(features.shape)
-    labels = labels.reshape((len(labels),))
-    print(labels.shape)
-    combinations = cartesian((depthes, samples_leaf, samples_split))
+def find_optimal_parameters(cls, features, labels,  **kwargs):
+    keys = []
+    classifier_parameters_list = []
+
+    for key in kwargs:
+        keys.append(key)
+        classifier_parameters_list.append(kwargs.get(key))
+
+    combinations = cartesian(classifier_parameters_list)
     scores = []
 
-    print('Begin cross-validation')
+    print('Begin cross-validation on ' + cls.__name__)
     for i in range(len(combinations)):
-        depth = combinations[i][0]
-        min_samples_leaf = combinations[i][1]
-        min_samples_split = combinations[i][2]
+        classifier_params = {}
 
-        mean_score = cross_val_score(DecisionTreeClassifier(max_depth=depth, min_samples_leaf=min_samples_leaf,
-                                                            min_samples_split=min_samples_split),
-                                     features, labels, cv=4, n_jobs=4, verbose=2).mean()
+        for j in range(len(keys)):
+            classifier_params[keys[j]] = combinations[i][j]
 
-        res = {'score': mean_score, 'leaf': min_samples_leaf, 'split': min_samples_split, 'depth':depth}
-        scores.append(res)
+        print(labels.dtype)
+        mean_score = cross_val_score(cls(**classifier_params),
+                                     features, labels, cv=4, n_jobs=-1, verbose=2).mean()
 
-    optimal_parameters = {'score': 9999999}
+        classifier_params['score'] = mean_score
+        print('Classifier params: ' + str(classifier_params))
+        scores.append(classifier_params)
+
+    optimal_parameters = {'score': 0}
     for res in scores:
-        if res['score'] < optimal_parameters['score']:
+        if res['score'] > optimal_parameters['score']:
             optimal_parameters = res
 
     return optimal_parameters

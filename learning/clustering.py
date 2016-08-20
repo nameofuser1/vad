@@ -1,5 +1,4 @@
 from sklearn.cluster import SpectralClustering
-from learning import prepare_dataset
 
 
 if __name__ == '__main__':
