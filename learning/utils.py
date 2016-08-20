@@ -1,22 +1,21 @@
 import numpy as np
-
-from config import VOICED_FNAME, VOICED_FEATURES_NUM, UNVOICED_FNAME, UNVOICED_FEATURES_NUM
 from dataset.file_processing import load_csv
 
 
-def load_files():
+def load_files(files, features_num, dtype=np.float64):
     #
     #   Load features and labels from files
     #
-    voiced_features, voiced_res = load_csv(VOICED_FNAME, VOICED_FEATURES_NUM, dtype=np.float64)
-    unvoiced_features, unvoiced_res = load_csv(UNVOICED_FNAME, UNVOICED_FEATURES_NUM, dtype=np.float64)
+    total_features = np.array([], dtype=dtype)
+    total_labels = np.array([], dtype=dtype)
 
-    features = np.concatenate([voiced_features, unvoiced_features])
-    del voiced_features
-    del unvoiced_features
+    for file, num in zip(files, features_num):
+        features, labels = load_csv(file, num, dtype=dtype)
 
-    labels = np.concatenate([voiced_res, unvoiced_res])
-    del voiced_res
-    del unvoiced_res
+        total_features = np.concatenate([total_features, features])
+        total_labels = np.concatenate([total_labels, labels])
 
-    return features, labels
+        del features
+        del labels
+
+    return total_features, total_labels

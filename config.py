@@ -12,7 +12,7 @@ NOISE_PATH = [MUSAN_PATH + '/noise/sound-bible', MUSAN_PATH + '/noise/free-sound
 MUSAN_DATASET = 0
 TEDLIUM_DATASET = 1
 
-DATASET_PATH = './dataset'
+DATASET_PATH = './dataset/datasets'
 VOICED_FNAME = DATASET_PATH + '/voiced.csv'
 UNVOICED_FNAME = DATASET_PATH + '/unvoiced.csv'
 

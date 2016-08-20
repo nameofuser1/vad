@@ -1,8 +1,14 @@
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.cross_validation import train_test_split
 from utils import load_files
-from config import *
 import cPickle
+
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath('../'))
+from config import *
+
 
 if __name__ == "__main__":
     print('Loading files...')
@@ -24,7 +30,7 @@ if __name__ == "__main__":
     cls.fit(train_features, train_labels)
 
     print('Saving classifier...')
-    cls_f = open('../classifiers/decision_classifier.cls', 'w')
+    cls_f = open('./classifiers/decision_classifier.cls', 'w')
     cPickle.dump(cls, cls_f)
     cls_f.close()
 
@@ -32,7 +38,7 @@ if __name__ == "__main__":
     score = cls.score(test_features, test_labels)
 
     print('Saving results...')
-    f = open('decision.res', 'w')
+    f = open('./classifiers/decision_classifier.res', 'w')
     f.write('Decision tree with parameters: ' + str(params))
     f.write('Score: ' + str(score))
     f.write('Used voiced features: ' + str(VOICED_FEATURES_NUM))

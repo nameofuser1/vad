@@ -12,7 +12,7 @@ if __name__ == '__main__':
     frame_size = int(0.010 * 16000)  # 10 ms frame
     noise_frames_num = 5
 
-    analyser = SKLearnAnalyzer('./classifiers/decision_classifier.cls')
+    analyser = SKLearnAnalyzer('./learning/classifiers/decision_classifier.cls')
     active_frames_counter = 0
     active_frames = b''
     noise_frames = []
