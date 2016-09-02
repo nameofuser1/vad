@@ -2,6 +2,15 @@ from multiprocessing import Process, Queue, Event
 import pyaudio
 
 
+def _recording_loop(samples_queue, running, stream, chunk_size):
+    stream.start_stream()
+
+    while running.is_set():
+        samples_queue.put(stream.read(chunk_size))
+
+    stream.stop_stream()
+
+
 class Recoder:
 
     def __init__(self, frame_rate, period):
@@ -15,8 +24,6 @@ class Recoder:
         self.chunk_size = (frame_rate*period) / 1000
         self.channels = 1
 
-        print(self.chunk_size)
-
         self._pa = pyaudio.PyAudio()
         self._stream = None
 
@@ -29,8 +36,8 @@ class Recoder:
                                          frames_per_buffer=self.chunk_size)
 
             self.running.set()
-            self.proc = Process(target=self._recording_loop, args=[self.samples_queue, self.running, self._stream,
-                                                                   self.chunk_size])
+            self.proc = Process(target=_recording_loop, args=[self.samples_queue, self.running, self._stream,
+                                                              self.chunk_size])
             self.proc.start()
 
     def stop(self):
@@ -50,11 +57,3 @@ class Recoder:
             res.append(self.samples_queue.get())
 
         return res
-
-    def _recording_loop(self, samples_queue, running, stream, chunk_size):
-        stream.start_stream()
-
-        while running.is_set():
-            samples_queue.put(stream.read(chunk_size))
-
-        stream.stop_stream()

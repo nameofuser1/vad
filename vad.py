@@ -30,7 +30,7 @@ if __name__ == '__main__':
 
             if not rec.empty():
                 raw_data = rec.read()
-                print(raw_data)
+                print("Read data " + str(raw_data))
 
                 # passing first 10 frames because somehow they are really noisy
                 if init_passing < 10:
