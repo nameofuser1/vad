@@ -15,10 +15,11 @@ class SKLearnAnalyzer(Analyser):
         self.low_hz = low_hz
         self.high_hz = high_hz
         self.fbank_num = fbank_num
-
-        self.classifier = cPickle.load(fname)
         self.filterbank = get_mel_filterbanks(low_hz, high_hz, fft_n, fbank_num, sample_rate)
         self.frames_buffer = []
+
+        with open(fname, 'rb') as f:
+            self.classifier = cPickle.load(f)
 
     def load_init_inactive_frames(self, frames):
         if len(frames) != SKLearnAnalyzer.BUFFER_SIZE:

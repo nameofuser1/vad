@@ -17,7 +17,7 @@ if __name__ == '__main__':
     active_frames = b''
     noise_frames = []
 
-    rec = Recoder(frame_rate=16000, period=160)
+    rec = Recoder(frame_rate=16000, period=25)
     rec.start()
 
     frames_counter = 0
@@ -30,6 +30,7 @@ if __name__ == '__main__':
 
             if not rec.empty():
                 raw_data = rec.read()
+                print(raw_data)
 
                 # passing first 10 frames because somehow they are really noisy
                 if init_passing < 10:
@@ -40,7 +41,7 @@ if __name__ == '__main__':
                     frame = data[1]
                     np_frame = np.float64(np.fromstring(frame, np.int8))
                     # have to check it
-                    np_frame_substracted = np_frame - np.sign(np_frame)*127
+                    np_frame_substracted = np_frame #- np.sign(np_frame)*127
 
                     # filling in frames buffer first time
                     if len(noise_frames) < noise_frames_num:
@@ -52,7 +53,9 @@ if __name__ == '__main__':
                     else:
                         frames_counter += 1
 
-                        if analyser.feed_frame(np_frame_substracted):
+                        active_frame = analyser.feed_frame(np_frame_substracted)
+                        if active_frame is not None:
+                            print("Got active frame")
                             active_frames_counter += 1
                             active_frames += frame
 
