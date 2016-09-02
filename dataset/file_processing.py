@@ -12,7 +12,7 @@ counter_queue = Manager().Queue(1)
 counter_queue.put(0)
 
 
-def create_pool_input(file_path, frame_size, frame_step, fft_n, fbank, mfcc_num, transcription_path=None):
+def create_pool_input(files_path, frame_size, frame_step, fft_n, fbank, mfcc_num, transcription_path=None):
     #
     #   Create list of input for multiprocessing.Pool.map
     #
@@ -22,13 +22,6 @@ def create_pool_input(file_path, frame_size, frame_step, fft_n, fbank, mfcc_num,
         transcription_path += '/' + file
     input = []
 
-    input.extend([
-                (
-                    file_path, frame_size, frame_step, fft_n, fbank, mfcc_num, counter_queue,
-                    transcription_path
-                )
-                for file in os.listdir(file_path) if file.endswith('.wav')
-                ])
 
     return input
 

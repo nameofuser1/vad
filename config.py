@@ -6,11 +6,15 @@ MAX_NOISE_FILES = 900
 FILES_PER_STEP = 30
 
 MUSAN_PATH = '/home/kript0n/Documents/musan'
-SPEECH_PATH = [MUSAN_PATH + '/speech/librivox', MUSAN_PATH + '/speech/us-gov']
-NOISE_PATH = [MUSAN_PATH + '/noise/sound-bible', MUSAN_PATH + '/noise/free-sound']
+MUSAN_SPEECH_PATH = [MUSAN_PATH + '/speech/librivox', MUSAN_PATH + '/speech/us-gov']
+MUSAN_NOISE_PATH = [MUSAN_PATH + '/noise/sound-bible', MUSAN_PATH + '/noise/free-sound']
 
-MUSAN_DATASET = 0
-TEDLIUM_DATASET = 1
+TEDLIUM_PATH = '/home/kript0n/Documents/tedlium'
+TEDLIUM_SPEECH_PATH = [TEDLIUM_PATH]
+TEDLIUM_NOISE_PATH = [TEDLIUM_PATH]
+
+MUSAN_DATASET = 'musan'
+TEDLIUM_DATASET = 'tedlium'
 
 DATASET_PATH = './dataset/datasets'
 VOICED_FNAME = DATASET_PATH + '/voiced.csv'
