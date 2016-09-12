@@ -2,6 +2,14 @@ import cPickle
 import numpy as np
 from analyser import Analyser
 from mfcc import get_mel_filterbanks, get_mfcc_from_spec, get_deltas, get_spec_mag, get_mfcc
+from utils import first_order_low_pass
+
+import logging
+
+logger = logging.getLogger(__name__)
+fhanlder = logging.FileHandler("analyser.log", mode='w')
+logger.addHandler(fhanlder)
+logger.setLevel(logging.DEBUG)
 
 
 class SKLearnAnalyzer(Analyser):
@@ -45,7 +53,8 @@ class SKLearnAnalyzer(Analyser):
         processing_frame_mfcc = self.frames_mfcc_buffer[self.PROCESSING_FRAME_INDEX]
 
         prev_frame_mfcc = self.frames_mfcc_buffer[self.PROCESSING_FRAME_INDEX - 1]
-        prev_frame_first_deltas = get_deltas(processing_frame_mfcc, self.frames_mfcc_buffer[self.PROCESSING_FRAME_INDEX - 2])
+        prev_frame_first_deltas = get_deltas(processing_frame_mfcc,
+                                             self.frames_mfcc_buffer[self.PROCESSING_FRAME_INDEX - 2])
 
         next_frame_mfcc = self.frames_mfcc_buffer[self.PROCESSING_FRAME_INDEX + 1]
         next_frame_first_deltas = get_deltas(self.frames_mfcc_buffer[self.PROCESSING_FRAME_INDEX + 2],
@@ -54,29 +63,46 @@ class SKLearnAnalyzer(Analyser):
         processing_frame_first_deltas = get_deltas(next_frame_mfcc, prev_frame_mfcc)
         processing_frame_second_deltas = get_deltas(next_frame_first_deltas, prev_frame_first_deltas)
 
-        self.__update_frames_buffers(frame)
-
         features = np.array([], dtype=np.float32)
         features = np.append(features, (processing_frame_mfcc, processing_frame_first_deltas,
                                         processing_frame_second_deltas))
 
         cls = self.classifier.predict(features.reshape(1, -1))
 
-        if cls == 0:
+        # add new frame
+        self.__update_frames_buffers(frame)
+
+        if cls == 1:
             return processing_frame
-        elif cls == 1:
+        elif cls == 0:
             self.__update_noise_buffer(processing_frame)
             return None
         else:
             raise AssertionError('Wrong classifier class')
 
     def __noise_spec_subtraction(self, spec_mag):
-        noise_mean_spec = np.mean(self.noise_buffer, axis=0)
-        subtracted = np.subtract(spec_mag, noise_mean_spec)
+        """
+        Performs spectral subtraction on processing frame spectrum
 
-        return np.where(subtracted < 0, 0, subtracted)
+        Parameters
+        ----------
+        spec_mag    --- processing frame spectrum
+        """
+        logger.debug("Spectral subtraction on frame: \r\n" + str(spec_mag))
+        noise_mean_spec = np.mean(self.noise_buffer, axis=0)
+        noise_mean_spec = first_order_low_pass(noise_mean_spec)
+        logger.debug("Spectral noise estimate: \r\n" + str(noise_mean_spec))
+
+        subtracted = np.subtract(spec_mag, noise_mean_spec)
+        subtracted = np.where(subtracted < 0, 0, subtracted)
+        logger.debug("After subtraction: \r\n" + str(subtracted) + "\r\n")
+
+        return subtracted
 
     def __update_noise_buffer(self, frame):
+        """
+        Save new unvoiced frame
+        """
         noise_spec_mag = get_spec_mag(frame, self.fft_n)
 
         if len(self.noise_buffer) == SKLearnAnalyzer.NOISE_BUFFER_SIZE:

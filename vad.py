@@ -57,15 +57,18 @@ if __name__ == '__main__':
                     print("Got active frame")
                     active_frames_counter += 1
                     active_frames += np_frame.tobytes()
+                else:
+                    print("Got noise frame")
 
     finally:
 
         print("Got active frames " + str(active_frames_counter))
         print("Voiced frames " + str(voiced_frames))
+        print(len(active_frames))
 
         wf = wave.open("pyaudio.wav", "wb")
         wf.setnchannels(channels)
-        wf.setsampwidth(2)
+        wf.setsampwidth(np.dtype(dtype).itemsize)
         wf.setframerate(frame_rate)
         wf.writeframesraw(active_frames)
         wf.close()
