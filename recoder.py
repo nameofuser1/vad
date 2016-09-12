@@ -1,48 +1,37 @@
-from multiprocessing import Process, Queue, Event
-import alsaaudio
+from multiprocessing import Manager
+import sounddevice as sd
+import numpy as np
+
+samples_queue = Manager().Queue()
+
+
+def cb(in_data, frames, time, status):
+    if frames > 0:
+        samples_queue.put(np.fromstring(in_data, np.int8))
 
 
 class Recoder:
 
-    def __init__(self, frame_rate, period):
-
+    def __init__(self, frame_rate, period, channels, dtype='int16'):
+        #
+        #   Period in ms
+        #
         self.proc = None
-        self.running = Event()
-        self.samples_queue = Queue()
         self.frame_rate = frame_rate
-        self.period = period
+        self.channels = channels
+        self.chunk_size = int(frame_rate * period)
+
+        self.stream = sd.RawInputStream(samplerate=self.frame_rate, blocksize=self.chunk_size,
+                                   channels=self.channels, callback=cb, dtype=dtype)
 
     def start(self):
-        if self.proc is None:
-            self.running.set()
-            self.proc = Process(target=self._recording_loop, args=[self.samples_queue, self.running, self.frame_rate,
-                                                                   self.period])
-            self.proc.start()
+        self.stream.start()
 
     def stop(self):
-        if self.proc is not None:
-            self.running.clear()
-            self.proc.join()
+        self.stream.close()
 
     def empty(self):
-        return self.samples_queue.empty()
+        return samples_queue.empty()
 
     def read(self):
-        res = []
-        while not self.samples_queue.empty():
-            res.append(self.samples_queue.get())
-
-        return res
-
-    def _recording_loop(self, samples_queue, running, frame_rate, period):
-
-        rec = alsaaudio.PCM(type=alsaaudio.PCM_CAPTURE, mode=alsaaudio.PCM_NORMAL)
-        rec.setchannels(1)
-        rec.setrate(frame_rate)
-        rec.setperiodsize(period)
-        rec.setformat(alsaaudio.PCM_FORMAT_S8)
-
-        while running.is_set():
-            samples_queue.put(rec.read())
-
-        rec.close()
+        return samples_queue.get()
