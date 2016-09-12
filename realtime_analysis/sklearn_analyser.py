@@ -1,4 +1,5 @@
 import cPickle
+import numpy as np
 from analyser import Analyser
 from mfcc import get_mel_filterbanks, get_mfcc, get_deltas
 
@@ -25,35 +26,34 @@ class SKLearnAnalyzer(Analyser):
         if len(frames) != SKLearnAnalyzer.BUFFER_SIZE:
             raise ValueError("Number of inactive frame must be the same as BUFFER SIZE")
 
-        self.frames_buffer = [get_mfcc(frame, self.fft_n, self.filterbank, self.mfcc_num) for frame in frames]
+        self.frames_buffer = [get_mfcc(frame.astype(np.float32), self.fft_n, self.filterbank, self.mfcc_num) for frame in frames]
 
     def feed_frame(self, frame):
+        frame = frame.astype(np.float32)
         processing_frame = self.frames_buffer[self.PROCESSING_FRAME_INDEX]
         processing_frame_mfcc = processing_frame
 
         prev_frame_mfcc = self.frames_buffer[self.PROCESSING_FRAME_INDEX - 1]
-        prev_frame_first_deltas = get_deltas(processing_frame_mfcc, self.frames_buffer[self.processing_frame_index - 2])
+        prev_frame_first_deltas = get_deltas(processing_frame_mfcc, self.frames_buffer[self.PROCESSING_FRAME_INDEX - 2])
 
-        next_frame_mfcc = self.frames_buffer[self.processing_frame_index + 1]
-        next_frame_first_deltas = get_deltas(self.frames_buffer[self.processing_frame_index + 2], processing_frame_mfcc)
+        next_frame_mfcc = self.frames_buffer[self.PROCESSING_FRAME_INDEX + 1]
+        next_frame_first_deltas = get_deltas(self.frames_buffer[self.PROCESSING_FRAME_INDEX + 2], processing_frame_mfcc)
 
         processing_frame_first_deltas = get_deltas(next_frame_mfcc, prev_frame_mfcc)
         processing_frame_second_deltas = get_deltas(next_frame_first_deltas, prev_frame_first_deltas)
 
         # Update circular buffer
         self.frames_buffer.pop(0)
-        self.frames_buffer.append(get_mfcc(frame, self.fft_n, self.mel_filterbank, self.mfcc_num))
+        self.frames_buffer.append(get_mfcc(frame, self.fft_n, self.filterbank, self.mfcc_num))
 
-        features = []
-        features.extend(processing_frame_mfcc)
-        features.extend(processing_frame_first_deltas)
-        features.extend(processing_frame_second_deltas)
+        features = np.array([], dtype=np.float32)
+        features = np.append(features, (processing_frame_mfcc, processing_frame_first_deltas, processing_frame_second_deltas))
 
-        cls = self.classifier.predict(features)
+        cls = self.classifier.predict(features.reshape(1, -1))
 
-        if cls == 1:
+        if cls == 0:
             return processing_frame
-        elif cls == 0:
+        elif cls == 1:
             return None
         else:
             raise AssertionError('Wrong classifier class')
