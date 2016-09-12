@@ -56,12 +56,25 @@ def get_mel_filterbanks(low_hz, up_hz, fft_n, n_filters, sample_rate):
     return filterbank
 
 
+def get_spec_mag(frame, fft_n):
+    frame = frame.astype(np.float32)
+    return np.square(np.absolute(np.fft.fft(frame, fft_n)[0:fft_n / 2] / np.float32(fft_n)))
+
 #
 #   Number of MFCC is equal number of filters in filterbank
 #
 def get_mfcc(frame, fft_n, filterbank, mfcc_n):
     frame_after_fft = np.square(np.absolute(np.fft.fft(frame, fft_n)[0:fft_n/2]/np.float64(fft_n)))
     fbank_energies = np.dot(frame_after_fft, filterbank.T)
+    fbank_energies = np.where(fbank_energies==0, np.finfo(float).eps, fbank_energies)
+    coefs = np.log10(fbank_energies)
+    mfcc = dct(coefs, type=2, norm='ortho')[:mfcc_n]
+
+    return lifter(mfcc)
+
+
+def get_mfcc_from_spec(spec, filterbank, mfcc_n):
+    fbank_energies = np.dot(spec, filterbank.T)
     fbank_energies = np.where(fbank_energies==0, np.finfo(float).eps, fbank_energies)
     coefs = np.log10(fbank_energies)
     mfcc = dct(coefs, type=2, norm='ortho')[:mfcc_n]
