@@ -42,7 +42,7 @@ def read(fname):
         channels = int((header[4].split(' '))[2])
         framerate = int((header[6].split(' '))[2])
 
-        samples = np.zeros((samples_num*2,), dtype=np.int16)
+        samples = np.zeros((samples_num,), dtype=np.int16)
 
         counter = 0
         for chunk in iter(partial(f.read, CHUNK_SIZE*sample_width), ""):

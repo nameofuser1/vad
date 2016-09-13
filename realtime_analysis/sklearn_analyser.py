@@ -51,6 +51,7 @@ class SKLearnAnalyzer(Analyser):
 
         processing_frame = self.frames_buffer[self.PROCESSING_FRAME_INDEX]
         processing_frame_mfcc = self.frames_mfcc_buffer[self.PROCESSING_FRAME_INDEX]
+        processing_frame_mfcc = self.__normalize_frame_mfcc(processing_frame_mfcc)
 
         prev_frame_mfcc = self.frames_mfcc_buffer[self.PROCESSING_FRAME_INDEX - 1]
         prev_frame_first_deltas = get_deltas(processing_frame_mfcc,
@@ -99,6 +100,12 @@ class SKLearnAnalyzer(Analyser):
 
         return subtracted
 
+    def __normalize_frame_mfcc(self, mfcc):
+        mfcc_mean = np.mean(self.frames_mfcc_buffer, axis=0)
+        mfcc_std = np.std(self.frames_mfcc_buffer, axis=0)
+
+        return np.divide(np.subtract(mfcc, mfcc_mean), mfcc_std)
+
     def __update_noise_buffer(self, frame):
         """
         Save new unvoiced frame
@@ -113,7 +120,7 @@ class SKLearnAnalyzer(Analyser):
     def __update_frames_buffers(self, frame):
         spec_mag = get_spec_mag(frame, self.fft_n)
         subtracted_spec = self.__noise_spec_subtraction(spec_mag)
-        frame_mfcc = get_mfcc_from_spec(subtracted_spec, self.filterbank, self.mfcc_num)
+        frame_mfcc = get_mfcc_from_spec(spec_mag, self.filterbank, self.mfcc_num)
 
         if len(self.frames_buffer) == SKLearnAnalyzer.FRAMES_BUFFER_SIZE:
             self.frames_buffer.pop(0)

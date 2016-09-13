@@ -1,29 +1,13 @@
 import csv
-import os
 from functools import partial
 from multiprocessing import Manager
 
 import numpy as np
 from scipy.io import wavfile
+import sph
 
 from mfcc import get_mfcc, get_deltas
-
-counter_queue = Manager().Queue(1)
-counter_queue.put(0)
-
-
-def create_pool_input(files_path, frame_size, frame_step, fft_n, fbank, mfcc_num, transcription_path=None):
-    #
-    #   Create list of input for multiprocessing.Pool.map
-    #
-    global counter_queue
-
-    if transcription_path is not None:
-        transcription_path += '/' + file
-    input = []
-
-
-    return input
+from tedlium.stm_parser import get_samples_indices
 
 
 def process_file(args):
@@ -36,7 +20,20 @@ def process_file(args):
     counter_queue = args[6]
     transcription_path = args[7]
 
-    sample_rate, f_raw = wavfile.read(fname)
+    # Handle to types of files: wave and sph
+    # f_raw is numpy array
+    if fname.endswith(".wav"):
+        sample_rate, f_raw = wavfile.read(fname)
+
+    elif fname.endswith(".sph"):
+        sph_obj = sph.read(fname)
+        sample_rate = sph_obj.framerate
+        f_raw = sph_obj.data
+
+    else:
+        raise ValueError("Wrong file format")
+
+    # split into overlapping frames
     frames = split_into_frames(f_raw, frame_size, frame_step, transcription_path, sample_rate)
 
     frames_buffer_size = 5
@@ -101,14 +98,11 @@ def split_into_frames(data, frame_size, step, transcription_path=None, frame_rat
 
 
 def parse_transcription(path, frame_rate):
-    #
-    #   Parse transcription of given audio file
-    #
     indices = np.array([], dtype=np.int32)
+    starts, ends = get_samples_indices(path, frame_rate)
 
-    with open(path) as f_trans:
-        for line in iter(partial(f_trans.readline, 2048)):
-            pass
+    for start, end in zip(starts, ends):
+        np.append(indices, np.arange(start, end))
 
     return indices
 
