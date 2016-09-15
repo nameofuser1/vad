@@ -1,13 +1,12 @@
 import csv
-from functools import partial
-from multiprocessing import Manager
 
 import numpy as np
 from scipy.io import wavfile
-import sph
 
+import sph
+from stm_parser import get_samples_indices
+from file_index import get_index_name, load_file_index
 from mfcc import get_mfcc, get_deltas
-from tedlium.stm_parser import get_samples_indices
 
 
 def process_file(args):
@@ -31,7 +30,7 @@ def process_file(args):
         f_raw = sph_obj.data
 
     else:
-        raise ValueError("Wrong file format")
+        raise ValueError("Wrong file format: " + str(fname))
 
     # split into overlapping frames
     frames = split_into_frames(f_raw, frame_size, frame_step, transcription_path, sample_rate)
@@ -84,8 +83,13 @@ def split_into_frames(data, frame_size, step, transcription_path=None, frame_rat
     offset = 0
 
     if transcription_path and frame_rate:
-        indices = parse_transcription(transcription_path, frame_rate)
-        data = data[indices]
+        starts, ends = parse_transcription(transcription_path, frame_rate)
+        new_data = np.array([], dtype=np.int16)
+
+        for start, end in zip(starts, ends):
+            new_data = np.append(new_data, data[start:end])
+
+        data = new_data
 
     elif transcription_path and frame_rate is None:
         raise Exception('You must specify frame_rate')
@@ -98,13 +102,7 @@ def split_into_frames(data, frame_size, step, transcription_path=None, frame_rat
 
 
 def parse_transcription(path, frame_rate):
-    indices = np.array([], dtype=np.int32)
-    starts, ends = get_samples_indices(path, frame_rate)
-
-    for start, end in zip(starts, ends):
-        np.append(indices, np.arange(start, end))
-
-    return indices
+    return get_samples_indices(path, frame_rate)
 
 
 def create_table_header(mfcc_len):
@@ -182,3 +180,31 @@ def load_csv(fname, items_num, columns_used=None, memmap=False, dtype=np.float32
             results[i] = int(line[-1])
 
         return features, results
+
+
+generator_variables = {}
+
+
+def create_file_gen(file_path, batch_size=0, offset=1, dtype=np.float32, delimiter=','):
+    """
+    Parameters
+    ----------
+    file_path           --- file to load features from
+    batch_size          --- features number to be loaded
+    offset              --- pass first n lines of file
+    dtype               --- features are yielded in numpy arrays with specified data type
+    delimiter           --- delimiter for separating features
+
+    Returns
+    -------
+    Generator of features
+    """
+
+    index = load_file_index(file_path)
+
+    with open(file_path, 'rb') as f:
+        for i in range(offset, offset+batch_size):
+            f.seek(index[i])
+            line = f.readline(1024).strip('\n')
+
+            yield np.asarray(line.split(delimiter), dtype=dtype)

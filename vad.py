@@ -5,8 +5,6 @@ from realtime_analysis.sklearn_analyser import SKLearnAnalyzer
 from recoder import Recoder
 
 
-
-
 if __name__ == '__main__':
 
     frame_rate = 16000
