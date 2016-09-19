@@ -8,15 +8,21 @@ from keras.utils import np_utils
 
 from dataset import random_features_generator, get_features_number
 
-EPOCHS_NUM = 25
-BATCH_SIZE = 32
+import numpy as np
 
+TOTAL_SIZE = 0.01
 TRAIN_TEST_RATIO = 0.75
 BATCH_SIZE = 32
-TOTAL_SIZE = 0.0001
+EPOCHS_NUM = 25
+
 USE_MUSAN_NOISE = True
 USE_MUSAN_MUSIC = True
 USE_TEDLIUM_SPEECH = True
+
+ACCURACY_THRESHOLD = 0.90
+
+MODEL_NAME = 'first_model'
+PREFIX = "./classifiers"
 
 
 def get_batches_num(batch_size=32, total_size=1.0, use_musan_noise=True,
@@ -49,7 +55,7 @@ def get_batch(batch_size, features_gen):
             batch_x.append(features)
             batch_y.append(cls)
 
-        batch_y = np_utils.to_categorical(batch_y)
+        batch_y = np_utils.to_categorical(batch_y, nb_classes=3)
 
         return batch_x, batch_y
 
@@ -96,6 +102,7 @@ def get_train_test_generators(epochs_num, train_test_ratio=0.75, batch_size=32, 
 
 
 if __name__ == "__main__":
+    model_ready = False
     input_shape = (39,)
 
     model = Sequential()
@@ -115,25 +122,48 @@ if __name__ == "__main__":
                   metrics=['accuracy'],
                   optimizer='adadelta')
 
-    train_info, val_info = get_train_test_generators(1, TRAIN_TEST_RATIO, BATCH_SIZE, TOTAL_SIZE,
+    print(model.summary())
+
+    train_info, val_info = get_train_test_generators(EPOCHS_NUM, TRAIN_TEST_RATIO, BATCH_SIZE, TOTAL_SIZE,
                                                      USE_MUSAN_NOISE, USE_MUSAN_MUSIC, USE_TEDLIUM_SPEECH)
 
-    train_gen = train_info[0]
-    train_samples = train_info[1]
+    epoch_counter = 0
+    while epoch_counter < EPOCHS_NUM:
+        print("Epoch %d" % epoch_counter)
 
-    val_gen = val_info[0]
-    val_samples = val_info[1]
+        train_gen = train_info[0]
+        train_samples = train_info[1]
 
-    print("Number of train batches: %d" % train_samples)
-    print("Number of validation batches: %d" % val_samples)
+        val_gen = val_info[0]
+        val_samples = val_info[1]
 
-    model.fit_generator(train_gen, train_samples, EPOCHS_NUM, validation_data=val_gen,
-                        nb_val_samples=val_samples, nb_worker=4)
+        for batch_x, batch_y in train_gen:
+            batch_x = np.asarray(batch_x)
+            batch_y = np.asarray(batch_y)
 
-    score = model.evaluate_generator(val_gen, val_samples, nb_worker=4)
+            model.train_on_batch(batch_x, batch_y)
 
-    print("Validation score: " + str(score[0]))
-    print("Validation accuracy: " + str(score[1]))
+        val_score = model.evaluate_generator(val_gen, val_samples, nb_worker=4)
+
+        print("Validation score: " + str(val_score[0]))
+        print("Validation accuracy: " + str(val_score[1]))
+
+        if (val_score[1] > ACCURACY_THRESHOLD) and not model_ready:
+            print("Needed accuracy is achieved")
+            print("Saving model...")
+
+            with open(PREFIX+'/'+MODEL_NAME+'_achieved_accuracy.json', 'w') as model_f:
+                model_f.write(model.to_json())
+
+            model.save_weights(PREFIX+'/'+MODEL_NAME+'_achieved_accuracy.weights')
+
+            model_ready = True
+
+    with open(PREFIX + '/' + MODEL_NAME + '_full_training.json', 'w') as model_f:
+        model_f.write(model.to_json())
+
+    model.save_weights(PREFIX + '/' + MODEL_NAME + '_full_training.weights')
+
 
 
 
