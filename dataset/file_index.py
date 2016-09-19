@@ -20,13 +20,12 @@ def create_file_index(path, offset=1):
             seek_offset += len(line)
             line_number += 1
 
-    return np.asarray(index, dtype=np.uint32)
+    return np.asarray(index, dtype=np.uint64)
 
 
 def save_file_index(path, offset=1):
     index_path = get_index_path(path)
     index_name = get_index_name(path)
-    print(index_name)
 
     with h5py.File(index_path, 'w') as f:
         f.create_dataset(index_name, data=create_file_index(path, offset))

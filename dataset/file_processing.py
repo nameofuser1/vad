@@ -8,6 +8,8 @@ from stm_parser import get_samples_indices
 from file_index import get_index_name, load_file_index
 from mfcc import get_mfcc, get_deltas
 
+import io
+
 
 def process_file(args):
     fname = args[0]
@@ -182,9 +184,6 @@ def load_csv(fname, items_num, columns_used=None, memmap=False, dtype=np.float32
         return features, results
 
 
-generator_variables = {}
-
-
 def create_file_gen(file_path, batch_size=0, offset=1, dtype=np.float32, delimiter=','):
     """
     Parameters
@@ -199,12 +198,45 @@ def create_file_gen(file_path, batch_size=0, offset=1, dtype=np.float32, delimit
     -------
     Generator of features
     """
-
     index = load_file_index(file_path)
 
-    with open(file_path, 'rb') as f:
-        for i in range(offset, offset+batch_size):
-            f.seek(index[i])
-            line = f.readline(1024).strip('\n')
+    if (batch_size > len(index)) or (batch_size == 0):
+        batch_size = len(index)
 
-            yield np.asarray(line.split(delimiter), dtype=dtype)
+    with open(file_path, 'rb') as f:
+        for i in range(offset+batch_size):
+            if i > offset:
+                yield __get_features_from_line(f.readline(1024), delimiter, dtype)
+            else:
+                f.readline(1024)
+
+
+def create_random_file_gen(file_path, batch_size=0, dtype=np.float32, delimiter=','):
+    lines_per_block = 8
+    index = load_file_index(file_path)
+
+    if (batch_size > len(index)) or (batch_size == 0):
+        batch_size = len(index)
+
+    lines_indices = np.random.random_integers(0, len(index), batch_size/lines_per_block + 1)
+
+    with io.open(file_path, 'rb') as f:
+        for line_index in lines_indices:
+            f.seek(index[line_index])
+            for i in range(lines_per_block):
+                line = f.readline(1024)
+                yield __get_features_from_line(line, delimiter, dtype)
+
+
+def features_number(file_path):
+    index = load_file_index(file_path)
+    return len(index)
+
+
+def __get_features_from_line(line, delimiter=',', dtype=np.float32):
+    features_str = line.strip('\r\n').split(delimiter)
+
+    features = np.asarray(features_str[:-1], dtype=dtype)
+    cls = int(float(features_str[-1]))
+
+    return features, cls
