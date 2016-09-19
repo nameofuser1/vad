@@ -13,59 +13,62 @@ musan_music_features_num = features_number(musan_music_path)
 tedlium_speech_features_num = features_number(tedlium_speech_path)
 
 
-def get_features_number(test_train_ratio=0.75, use_musan_noise=True,
+MUSAN_MUSIC = 0
+MUSAN_NOISE = 1
+TEDLIUM_SPEECH = 2
+
+
+def get_features_number(total_size=1.0, use_musan_noise=True,
                         use_musan_music=True, use_tedlium_speech=True):
-    features_num = []
+
+    features_num =  []
 
     if use_musan_noise:
-        features_num.append(int(musan_noise_features_num*test_train_ratio))
+        features_num.append(int(total_size*musan_noise_features_num))
 
     if use_musan_music:
-        features_num.append(int(musan_music_features_num*test_train_ratio))
+        features_num.append(int(total_size*musan_music_features_num))
 
     if use_tedlium_speech:
-        features_num.append(int(tedlium_speech_feature_num*test_train_ratio))
+        features_num.append(int(total_size*tedlium_speech_features_num))
 
     return features_num
 
 
-def random_features_generator(test_train_ratio=0.75, batch_size=32,
+def random_features_generator(total_size=1.0,
                               use_musan_noise=True, use_musan_music=True,
                               use_tedlium_speech=True):
-    batches = []
+
+    features_num = []
     generators = []
 
     if use_musan_noise:
-        batches.append(int(musan_noise_features_num*test_train_ratio))
-        generators.append(musan_random_noise_gen(batches[-1]))
+        features_num.append(int(total_size * musan_noise_features_num))
+        generators.append(musan_random_noise_gen(features_num[-1]))
 
     if use_musan_music:
-        batches.append(int(musan_music_features_num*test_train_ratio))
-        generators.append((musan_random_music_gen(batches[-1])))
+        features_num.append(int(total_size*musan_music_features_num))
+        generators.append(musan_random_music_gen(features_num[-1]))
 
     if use_tedlium_speech:
-        batches.append(int(tedlium_speech_features_num*test_train_ratio))
-        generators.append(tedlium_random_speech_gen(batches[-1]))
+        features_num.append(int(total_size * tedlium_speech_features_num))
+        generators.append(tedlium_random_speech_gen(features_num[-1]))
+
+    total_features = sum(features_num)
 
     features_counter = 0
-    total_features = sum(batches) + 0.0
-    print("Total features to load %d" % total_features)
-
-    batch_x = []
-    batch_y = []
-
     while features_counter < total_features:
-        total_batch = sum(batches) + 0.0
-        w = [(db + 0.0) / total_batch for db in batches]
+        total_batch = sum(features_num) + 0.0
+        w = [(db + 0.0) / total_batch for db in features_num]
 
         if total_batch % 10000 == 0:
             print("Remaining samples %d" % total_batch)
 
-        sample_index = np.random.randint(len(batches))
+        sample_index = np.random.randint(len(features_num))
         mw = max(w)
         b = 0
 
-        for i in range(len(batches)):
+        for i in range(len(features_num)):
             if features_counter == total_features:
                 break
 
@@ -73,26 +76,21 @@ def random_features_generator(test_train_ratio=0.75, batch_size=32,
             while w[sample_index] <= b:
                 b -= w[sample_index]
 
-                if sample_index == len(batches) - 1:
+                if sample_index == len(features_num) - 1:
                     sample_index = 0
                 else:
                     sample_index += 1
 
             try:
                 features, cls = generators[sample_index].next()
-                batches[sample_index] -= 1
+                features_num[sample_index] -= 1
                 features_counter += 1
 
-                batch_x.append(features)
-                batch_y.append(cls)
-
-                if len(batch_x) == batch_size:
-                    yield batch_x, batch_y
+                yield features, cls
 
             except StopIteration:
                 print("\nStop iteration exception:")
                 print("\tSample index %d" % sample_index)
-                print("\tBatch size: %d" % batches[sample_index])
                 print("\tGenerator: " + str(generators[sample_index]))
 
                 raise StopIteration()

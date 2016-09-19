@@ -11,22 +11,88 @@ from dataset import random_features_generator, get_features_number
 EPOCHS_NUM = 25
 BATCH_SIZE = 32
 
-TRAIN_RATIO = 0.01
-VALIDATION_RATIO = TRAIN_RATIO = 0.3 * TRAIN_RATIO
-TEST_RATION = 0.1 * TRAIN_RATION
+TRAIN_TEST_RATIO = 0.75
+BATCH_SIZE = 32
+TOTAL_SIZE = 0.0001
+USE_MUSAN_NOISE = True
+USE_MUSAN_MUSIC = True
+USE_TEDLIUM_SPEECH = True
 
 
-def batch_generator(train_test_ratio=0.75, batch_size=32):
-    features_gen = random_features_generator(train_test_ratio=train_test_ratio,
-                                             batch_size=batch_size)
+def get_batches_num(batch_size=32, total_size=1.0, use_musan_noise=True,
+                    use_musan_music=True, use_tedlium_speech=True):
 
-    try:
-        for batch_x, batch_y in features_gen:
-            batch_y = np_utils.to_categorical(batch_y)
+    f_num = get_features_number(total_size, use_musan_noise, use_musan_music, use_tedlium_speech)
+    b_num = [n / batch_size for n in f_num]
+
+    return b_num
+
+
+def get_batches_offsets(test_train_ratio=0.75, batch_size=32, total_size=1.0, use_musan_noise=True,
+                    use_musan_music=True, use_tedlium_speech=True):
+
+    train_n, test_n = get_features_number(test_train_ratio, total_size, use_musan_noise, use_musan_music,
+                                          use_tedlium_speech)
+
+    train_bo = train_n % batch_size
+    test_bo = test_n % batch_size
+
+    return train_bo, test_bo
+
+
+def get_batch(batch_size, features_gen):
+    batch_x = []
+    batch_y = []
+
+    for features, cls in features_gen:
+        while len(batch_x) < batch_size:
+            batch_x.append(features)
+            batch_y.append(cls)
+
+        batch_y = np_utils.to_categorical(batch_y)
+
+        return batch_x, batch_y
+
+
+def batch_generator(epochs_num, batch_size=32, total_size=1.0, use_musan_noise=True,
+                    use_musan_music=True, use_tedlium_speech=True):
+
+    batch_n = sum(get_batches_num(batch_size, total_size, use_musan_noise, use_musan_music,
+                              use_tedlium_speech))
+
+    print("Total batches: %d" % batch_n)
+
+    epoch = 0
+    while epoch < epochs_num:
+        features_gen = random_features_generator(total_size, use_musan_noise, use_musan_music,
+                                                 use_tedlium_speech)
+        train_counter = 0
+        while train_counter < batch_n:
+            batch_x, batch_y = get_batch(batch_size, features_gen)
+            train_counter += 1
+
             yield batch_x, batch_y
 
-    except StopIteration():
-        return  None, None
+        epoch += 1
+        features_gen.close()
+
+
+def get_train_test_generators(epochs_num, train_test_ratio=0.75, batch_size=32, total_size=1.0, use_musan_noise=True,
+                                  use_musan_music=True, use_tedlium_speech=True):
+
+    total_train_size = total_size*train_test_ratio
+    total_test_size = total_size*(1.0-train_test_ratio)
+
+    train_bn = get_batches_num(batch_size, total_train_size, use_musan_noise, use_musan_music, use_tedlium_speech)
+    test_bn = get_batches_num(batch_size, total_test_size, use_musan_noise, use_musan_music, use_tedlium_speech)
+
+    train_generator = batch_generator(epochs_num, batch_size, total_train_size, use_musan_noise, use_musan_music,
+                                      use_tedlium_speech)
+
+    test_generator = batch_generator(epochs_num, batch_size, total_test_size, use_musan_noise, use_musan_music,
+                                     use_tedlium_speech)
+
+    return (train_generator, sum(train_bn)), (test_generator, sum(test_bn))
 
 
 if __name__ == "__main__":
@@ -49,22 +115,27 @@ if __name__ == "__main__":
                   metrics=['accuracy'],
                   optimizer='adadelta')
 
-    total_train_features = get_features_number(train_test_ratio=TRAIN_RATIO)
-    total_validation_features = get_features_number(train_test_ratio=VALIDATION_RATIO)
-    total_test_features = get_features_number(train_test_ratio=TEST_RATIO)
+    train_info, val_info = get_train_test_generators(1, TRAIN_TEST_RATIO, BATCH_SIZE, TOTAL_SIZE,
+                                                     USE_MUSAN_NOISE, USE_MUSAN_MUSIC, USE_TEDLIUM_SPEECH)
 
-    epoch = 0
-    while epoch < EPOCHS_NUM:
-        train_gen = batch_generator(TRAIN_RATIO)
+    train_gen = train_info[0]
+    train_samples = train_info[1]
 
-        try:
-            for ba
+    val_gen = val_info[0]
+    val_samples = val_info[1]
 
-        except StopIteration():
-            print("Epoch %d passed" % epoch)
-            epoch += 1
+    print("Number of train batches: %d" % train_samples)
+    print("Number of validation batches: %d" % val_samples)
 
-            validation_gen = batch_generator(VALIDATION_RATIO)
+    model.fit_generator(train_gen, train_samples, EPOCHS_NUM, validation_data=val_gen,
+                        nb_val_samples=val_samples, nb_worker=4)
+
+    score = model.evaluate_generator(val_gen, val_samples, nb_worker=4)
+
+    print("Validation score: " + str(score[0]))
+    print("Validation accuracy: " + str(score[1]))
+
+
 
 
 
