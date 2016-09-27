@@ -47,17 +47,17 @@ def get_batches_offsets(test_train_ratio=0.75, batch_size=32, total_size=1.0, us
 
 
 def get_batch(batch_size, features_gen):
-    batch_x = []
-    batch_y = []
+    batch_x = np.zeros((batch_size, 39), dtype=np.float32)
+    batch_y = np.zeros(batch_size, dtype=np.uint8)
 
-    for features, cls in features_gen:
-        while len(batch_x) < batch_size:
-            batch_x.append(features)
-            batch_y.append(cls)
+    for i in range(batch_size):
+        features, cls = features_gen.next()
+        np.put(batch_x[i], np.arange(39), features)
+        batch_y[i] = cls
 
-        batch_y = np_utils.to_categorical(batch_y, nb_classes=3)
+    batch_y = np_utils.to_categorical(batch_y, nb_classes=3)
 
-        return batch_x, batch_y
+    return batch_x, batch_y
 
 
 def batch_generator(epochs_num, batch_size=32, total_size=1.0, use_musan_noise=True,
@@ -65,8 +65,6 @@ def batch_generator(epochs_num, batch_size=32, total_size=1.0, use_musan_noise=T
 
     batch_n = sum(get_batches_num(batch_size, total_size, use_musan_noise, use_musan_music,
                               use_tedlium_speech))
-
-    print("Total batches: %d" % batch_n)
 
     epoch = 0
     while epoch < epochs_num:
@@ -107,13 +105,12 @@ if __name__ == "__main__":
 
     model = Sequential()
 
-    model.add(Dense(39, input_shape=input_shape))
+    model.add(Dense(64, input_shape=input_shape))
     model.add(Activation('relu'))
-    model.add(Dense(128))
-    model.add(Activation('relu'))
-    model.add(Dense(64))
     model.add(Activation('relu'))
     model.add(Dense(32))
+    model.add(Activation('relu'))
+    model.add(Dense(16))
     model.add(Activation('relu'))
     model.add(Dense(3))
     model.add(Activation('softmax'))
@@ -133,23 +130,34 @@ if __name__ == "__main__":
 
         train_gen = train_info[0]
         train_samples = train_info[1]
+        print("Batches per train epoch: " + str(train_samples))
 
         val_gen = val_info[0]
         val_samples = val_info[1]
+        print("Batches for validation: " + str(val_samples))
 
-        for batch_x, batch_y in train_gen:
-            batch_x = np.asarray(batch_x)
-            batch_y = np.asarray(batch_y)
+        for i in range(train_samples):
+            if epoch_counter > 15:
+                print("Reading next")
+
+            batch_x, batch_y = train_gen.next()
+
+            if epoch_counter > 15:
+                print("Training")
 
             model.train_on_batch(batch_x, batch_y)
 
-        val_score = model.evaluate_generator(val_gen, val_samples, nb_worker=4)
+            if (epoch_counter > 15) and (i % 100 == 0):
+                print("Processed %d batches" % i)
+
+        print("Validating...")
+        val_score = model.evaluate_generator(val_gen, val_samples)
 
         print("Validation score: " + str(val_score[0]))
         print("Validation accuracy: " + str(val_score[1]))
 
         if (val_score[1] > ACCURACY_THRESHOLD) and not model_ready:
-            print("Needed accuracy is achieved")
+            print("Needed accuracy is achieved on epoch %d" % epoch_counter)
             print("Saving model...")
 
             with open(PREFIX+'/'+MODEL_NAME+'_achieved_accuracy.json', 'w') as model_f:
@@ -158,6 +166,8 @@ if __name__ == "__main__":
             model.save_weights(PREFIX+'/'+MODEL_NAME+'_achieved_accuracy.weights')
 
             model_ready = True
+
+        epoch_counter += 1
 
     with open(PREFIX + '/' + MODEL_NAME + '_full_training.json', 'w') as model_f:
         model_f.write(model.to_json())
