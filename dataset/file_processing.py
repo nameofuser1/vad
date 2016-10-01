@@ -1,29 +1,14 @@
 import csv
-import os
-from functools import partial
-from multiprocessing import Manager
 
 import numpy as np
 from scipy.io import wavfile
 
+import sph
+from stm_parser import get_samples_indices
+from file_index import get_index_name, load_file_index
 from mfcc import get_mfcc, get_deltas
 
-counter_queue = Manager().Queue(1)
-counter_queue.put(0)
-
-
-def create_pool_input(files_path, frame_size, frame_step, fft_n, fbank, mfcc_num, transcription_path=None):
-    #
-    #   Create list of input for multiprocessing.Pool.map
-    #
-    global counter_queue
-
-    if transcription_path is not None:
-        transcription_path += '/' + file
-    input = []
-
-
-    return input
+import io
 
 
 def process_file(args):
@@ -36,7 +21,20 @@ def process_file(args):
     counter_queue = args[6]
     transcription_path = args[7]
 
-    sample_rate, f_raw = wavfile.read(fname)
+    # Handle to types of files: wave and sph
+    # f_raw is numpy array
+    if fname.endswith(".wav"):
+        sample_rate, f_raw = wavfile.read(fname)
+
+    elif fname.endswith(".sph"):
+        sph_obj = sph.read(fname)
+        sample_rate = sph_obj.framerate
+        f_raw = sph_obj.data
+
+    else:
+        raise ValueError("Wrong file format: " + str(fname))
+
+    # split into overlapping frames
     frames = split_into_frames(f_raw, frame_size, frame_step, transcription_path, sample_rate)
 
     frames_buffer_size = 5
@@ -87,8 +85,13 @@ def split_into_frames(data, frame_size, step, transcription_path=None, frame_rat
     offset = 0
 
     if transcription_path and frame_rate:
-        indices = parse_transcription(transcription_path, frame_rate)
-        data = data[indices]
+        starts, ends = parse_transcription(transcription_path, frame_rate)
+        new_data = np.array([], dtype=np.int16)
+
+        for start, end in zip(starts, ends):
+            new_data = np.append(new_data, data[start:end])
+
+        data = new_data
 
     elif transcription_path and frame_rate is None:
         raise Exception('You must specify frame_rate')
@@ -101,16 +104,7 @@ def split_into_frames(data, frame_size, step, transcription_path=None, frame_rat
 
 
 def parse_transcription(path, frame_rate):
-    #
-    #   Parse transcription of given audio file
-    #
-    indices = np.array([], dtype=np.int32)
-
-    with open(path) as f_trans:
-        for line in iter(partial(f_trans.readline, 2048)):
-            pass
-
-    return indices
+    return get_samples_indices(path, frame_rate)
 
 
 def create_table_header(mfcc_len):
@@ -188,3 +182,61 @@ def load_csv(fname, items_num, columns_used=None, memmap=False, dtype=np.float32
             results[i] = int(line[-1])
 
         return features, results
+
+
+def create_file_gen(file_path, batch_size=0, offset=1, dtype=np.float32, delimiter=','):
+    """
+    Parameters
+    ----------
+    file_path           --- file to load features from
+    batch_size          --- features number to be loaded
+    offset              --- pass first n lines of file
+    dtype               --- features are yielded in numpy arrays with specified data type
+    delimiter           --- delimiter for separating features
+
+    Returns
+    -------
+    Generator of features
+    """
+    index = load_file_index(file_path)
+
+    if (batch_size > len(index)) or (batch_size == 0):
+        batch_size = len(index)
+
+    with open(file_path, 'rb') as f:
+        for i in range(offset+batch_size):
+            if i > offset:
+                yield __get_features_from_line(f.readline(1024), delimiter, dtype)
+            else:
+                f.readline(1024)
+
+
+def create_random_file_gen(file_path, batch_size=0, dtype=np.float32, delimiter=','):
+    lines_per_block = 8
+    index = load_file_index(file_path)
+
+    if (batch_size > len(index)) or (batch_size == 0):
+        batch_size = len(index)
+
+    lines_indices = np.random.random_integers(0, len(index), batch_size/lines_per_block + 1)
+
+    with io.open(file_path, 'rb') as f:
+        for line_index in lines_indices:
+            f.seek(index[line_index])
+            for i in range(lines_per_block):
+                line = f.readline(1024)
+                yield __get_features_from_line(line, delimiter, dtype)
+
+
+def features_number(file_path):
+    index = load_file_index(file_path)
+    return len(index)
+
+
+def __get_features_from_line(line, delimiter=',', dtype=np.float32):
+    features_str = line.strip('\r\n').split(delimiter)
+
+    features = np.asarray(features_str[:-1], dtype=dtype)
+    cls = int(float(features_str[-1]))
+
+    return features, cls

@@ -60,3 +60,15 @@ def cartesian(arrays, out=None):
             out[j*m:(j+1)*m,1:] = out[0:m,1:]
 
     return out
+
+
+def first_order_low_pass(signal, alpha=0.9):
+    smoothed = np.array(signal)
+
+    for i in range(len(signal)):
+        if i == 0:
+            pass
+
+        smoothed[i] = smoothed[i-1]*alpha + smoothed[i]*(1-alpha)
+
+    return smoothed
